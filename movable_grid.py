@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem, QGraph
 
 
 class ResizingSquare(QGraphicsRectItem):
-    """Little square that appears next to bottom right corner used to resize the grid"""
+    """Little square that appears next to bottom right corner, used to resize the grid"""
     def __init__(self, parent_grid: QGraphicsItem, color: Qt.GlobalColor=Qt.red):
         """Initialize square as parent of parent_grid with color color"""
         super().__init__(parent=parent_grid)
@@ -143,7 +143,7 @@ class MovableGrid(QGraphicsItem):
         self.color = color
         self.scene = scene
         self.corners_coordinates = []  # top left and bottom right corners coordinates
-        self.phi = 0  # between top edge and x-axis. grows clockwise (rads).
+        self.phi = 0  # positive angle between top edge and x-axis (rads).
         """Grid has 11 horizontal lines and 7 vertical lines"""
         self.horizontal_lines = [MovableLine(allow_vertical_movement=False, color=color, parent_grid=self)
                                  for _ in itertools.repeat(None, 11)]
@@ -208,18 +208,17 @@ class MovableGrid(QGraphicsItem):
         disk.setPos(x0 - r, y0 - r)
 
     def draw_grid(self, tl_x, tl_y, br_x, br_y):
-        """ Draw a regular grid given the coordinates of the two corners. The grid is angled by self.angle.
-        This function manipulates line positions but do not make direct changes to scene."""
-        """Refer to the attached PDF for the notation used"""
+        """ Draw a regular grid given the coordinates of the two corners, angled by self.angle.
+        This function manipulates line positions but do not make direct changes to scene.
+        Refer to the attached PDF for the notation used"""
+        """Compute angles and distances"""
         tl_br_line = QLineF(tl_x, tl_y, br_x, br_y)
         d = tl_br_line.length()
         tl_br_angle_deg = 360 - tl_br_line.angle()  # angle() returns counterclockwise angles in deg
         tl_br_angle_rad = tl_br_angle_deg * 2 * np.pi / 360  # convert to rad
         theta = tl_br_angle_rad - self.phi
-        # phi = tl_br_angle_rad - theta
         cos_phi = np.cos(self.phi)
         sin_phi = np.sin(self.phi)
-        # print('phi ', phi, ' theta ', theta, 'bl ', tl_br_angle_rad)
         l1 = d * np.cos(theta)
         l2 = d * np.sin(theta)
 
@@ -301,7 +300,8 @@ class MovableGrid(QGraphicsItem):
         self.square.setPos(current_position.x() + offset_x, current_position.y() + offset_y)
 
     def rotate_grid(self, old_mouse_pos: QPointF, new_mouse_pos: QPointF, caller: QGraphicsEllipseItem):
-        """Rotate grid by pivoting it around the disk opposite to the caller disk. The angle follows the mouse cursor"""
+        """Rotate grid by pivoting it around the disk opposite to the caller disk. The angle follows the mouse cursor.
+        Refer to PDF file for the notation used here."""
         """Whole grid"""
         line_list = self.horizontal_lines + self.vertical_lines + [self.grid_right_edge, self.grid_left_edge] \
                     + [self.grid_top_edge, self.grid_bottom_edge]
@@ -333,13 +333,8 @@ class MovableGrid(QGraphicsItem):
         new_alpha = np.arctan2(new_offset_y, new_offset_x)  # 0 is // to x-axis
         delta_alpha = new_alpha - old_alpha  # positive is clockwise
 
-        """Get theta"""
-        assert(len(self.corners_coordinates) == 4)
-        theta = QLineF(*self.corners_coordinates).angle()
-
         """Update grid angle"""
         self.phi += delta_alpha
-        # print('rotate ', self.phi)
 
         """Update corner coordinates"""
         tl_x_pv = self.corners_coordinates[0] - pivoting_point.x()
@@ -378,7 +373,7 @@ class MovableGrid(QGraphicsItem):
 
         """Update line position. Maintain distance between pivoting point but update angle by offset"""
         for line in line_list:
-            line_loc = line.line()  # This is in local coordinates
+            line_loc = line.line()  # in local coordinates
             line_offset = line.scenePos()
             line_pt1 = line_loc.p1() + line_offset
             line_pt2 = line_loc.p2() + line_offset
@@ -397,6 +392,8 @@ class MovableGrid(QGraphicsItem):
             self.set_line(line, line_new_x1, line_new_y1, line_new_x2, line_new_y2)
 
     def resize_grid(self):
+        """Take out coordinate of bottom right corner. This calls virtual function
+        mouseMoveEvent from GridWindow"""
         self.corners_coordinates = self.corners_coordinates[0:2]
 
 
