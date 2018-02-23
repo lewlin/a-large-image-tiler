@@ -1,4 +1,4 @@
-#Adjustable 12 x 8 grid
+# Adjustable 12 x 8 grid
 
 The script provides a simple graphical interface which allows a user to draw 12 x 8 
 grids. Grids dynamically follow mouse cursor as being placed, can be 
