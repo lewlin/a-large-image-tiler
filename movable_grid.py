@@ -340,12 +340,8 @@ class MovableGrid(QGraphicsItem):
         self.square.setPos(current_position.x() + offset_x, current_position.y() + offset_y)
 
         """Update corners position"""
-        print(self.corners_coordinates)
-        for coord in self.corners_coordinates[0::2]:
-            coord += offset_x
-        for coord in self.corners_coordinates[1::2]:
-            coord += offset_y
-        print(self.corners_coordinates)
+        self.corners_coordinates = [QPointF(pt.x() + offset_x, pt.y() + offset_y)
+                                    for pt in self.corners_coordinates]
 
     def rotate_grid(self, old_mouse_pos: QPointF, new_mouse_pos: QPointF, caller: QGraphicsEllipseItem):
         """Rotate grid by pivoting it around the disk opposite to the caller disk. The angle follows the mouse cursor.
@@ -386,16 +382,16 @@ class MovableGrid(QGraphicsItem):
         self.phi += delta_alpha
 
         """Update corner coordinates"""
-        tl_x_pv = self.corners_coordinates[0] - pivoting_point.x()
-        tl_y_pv = self.corners_coordinates[1] - pivoting_point.y()
-        br_x_pv = self.corners_coordinates[2] - pivoting_point.x()
-        br_y_pv = self.corners_coordinates[3] - pivoting_point.y()
+        tl_x_pv = self.corners_coordinates[0].x() - pivoting_point.x()
+        tl_y_pv = self.corners_coordinates[0].y() - pivoting_point.y()
+        br_x_pv = self.corners_coordinates[1].x() - pivoting_point.x()
+        br_y_pv = self.corners_coordinates[1].y() - pivoting_point.y()
         cos_delta_alpha = np.cos(delta_alpha)
         sin_delta_alpha = np.sin(delta_alpha)
         rotation_matrix = np.array([[cos_delta_alpha, -sin_delta_alpha],[sin_delta_alpha, cos_delta_alpha]])
         tl_x_new, tl_y_new = np.dot(rotation_matrix, [tl_x_pv, tl_y_pv]) + [pivoting_point.x(), pivoting_point.y()]
         br_x_new, br_y_new = np.dot(rotation_matrix, [br_x_pv, br_y_pv]) + [pivoting_point.x(), pivoting_point.y()]
-        self.corners_coordinates = [tl_x_new, tl_y_new, br_x_new, br_y_new]
+        self.corners_coordinates = [QPointF(tl_x_new, tl_y_new), QPointF(br_x_new, br_y_new)]
 
         """Update disks position. Maintain distance between pivoting point but update angle by offset"""
         for disk in disk_list:
@@ -455,7 +451,8 @@ class MovableGrid(QGraphicsItem):
     def resize_grid(self):
         """Take out coordinate of bottom right corner. This calls virtual function
         mouseMoveEvent from GridWindow"""
-        self.corners_coordinates = self.corners_coordinates[0:2]
+        print('res', self.corners_coordinates)
+        self.corners_coordinates = self.corners_coordinates[:-1]
 
 
 class GridWindow(QGraphicsView):
@@ -495,18 +492,21 @@ class GridWindow(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent):
         """Virtual function that handles mouse buttons click. If one is redefined, all four handlers should be."""
-        if event.button() == Qt.LeftButton and len(self.current_grid.corners_coordinates) < 4:
+        if event.button() == Qt.LeftButton and len(self.current_grid.corners_coordinates) < 2:
             """If left click and grid corners are not fully specified, append mouse coordinates to grid coordinates"""
             local_mouse_coordinates = self.mapToScene(event.pos())  # convert to scene coordinates
-            self.current_grid.corners_coordinates.append(local_mouse_coordinates.x())
-            self.current_grid.corners_coordinates.append(local_mouse_coordinates.y())
-            if len(self.current_grid.corners_coordinates) == 2:
+            self.current_grid.corners_coordinates.append(local_mouse_coordinates)
+            if len(self.current_grid.corners_coordinates) == 1:
                 """If one corner, add grid to scene"""
                 self.setWindowTitle('Left click to bottom right corner or right click to cancel')
                 self.current_grid.add_grid_to_scene()
-            elif len(self.current_grid.corners_coordinates) == 4:
+            elif len(self.current_grid.corners_coordinates) == 2:
                 """If two corners, draw grid"""
-                self.current_grid.draw_grid(*self.current_grid.corners_coordinates)
+                tl_x = self.current_grid.corners_coordinates[0].x()
+                tl_y = self.current_grid.corners_coordinates[0].y()
+                br_x = self.current_grid.corners_coordinates[1].x()
+                br_y = self.current_grid.corners_coordinates[1].y()
+                self.current_grid.draw_grid(tl_x, tl_y, br_x, br_y)
                 self.setWindowTitle('Displaying grid. Right click to cancel grid and restart')
                 self.like_grid_button.setEnabled(True)
             event.accept()  # prevent event propagation to parent widget
@@ -522,11 +522,12 @@ class GridWindow(QGraphicsView):
 
     def mouseMoveEvent(self, event: QMouseEvent):
         """Virtual function called every time the mouse cursor is moved."""
-        if len(self.current_grid.corners_coordinates) == 2:
+        if len(self.current_grid.corners_coordinates) == 1:
             """If only a grid corner is chosen, dynamically draw grid following mouse cursor"""
             mouse_coordinates = self.mapToScene(event.pos())  # switch to scene coordinates
-            self.current_grid.draw_grid(*self.current_grid.corners_coordinates, mouse_coordinates.x(),
-                                        mouse_coordinates.y())
+            tl_x = self.current_grid.corners_coordinates[0].x()
+            tl_y = self.current_grid.corners_coordinates[0].y()
+            self.current_grid.draw_grid(tl_x, tl_y, mouse_coordinates.x(), mouse_coordinates.y())
             event.accept()
         else:
             return super().mouseMoveEvent(event)
