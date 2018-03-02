@@ -150,16 +150,16 @@ class MovableGrid(QGraphicsItem):
         self.vertical_lines = [MovableLine(allow_horizontal_movement=False, color=color, parent_grid=self)
                                for _ in itertools.repeat(None, 7)]
         """"Grid edges (nomenclature assumes that user chooses top left corner first)"""
-        self.grid_top_edge = MovableLine(move_all=True, parent_grid=self, color=color)
-        self.grid_bottom_edge = MovableLine(move_all=True, parent_grid=self, color=color)
-        self.grid_left_edge = MovableLine(move_all=True, parent_grid=self, color=color)
-        self.grid_right_edge = MovableLine(move_all=True, parent_grid=self, color=color)
+        self.top_edge = MovableLine(move_all=True, parent_grid=self, color=color)
+        self.bottom_edge = MovableLine(move_all=True, parent_grid=self, color=color)
+        self.left_edge = MovableLine(move_all=True, parent_grid=self, color=color)
+        self.right_edge = MovableLine(move_all=True, parent_grid=self, color=color)
         """Corner disks (used to rotate the grid)"""
         self.disk_radius = 4  # in pxs
-        self.top_left_disk = MovableDisk(parent_grid=self, color=color)
-        self.top_right_disk = MovableDisk(parent_grid=self, color=color)
-        self.bottom_left_disk = MovableDisk(parent_grid=self, color=color)
-        self.bottom_right_disk = MovableDisk(parent_grid=self, color=color)
+        self.tl_disk = MovableDisk(parent_grid=self, color=color)
+        self.tr_disk = MovableDisk(parent_grid=self, color=color)
+        self.bl_disk = MovableDisk(parent_grid=self, color=color)
+        self.br_disk = MovableDisk(parent_grid=self, color=color)
         """Resizing square"""
         self.square = ResizingSquare(parent_grid=self, color=color)
         """Grid labels"""
@@ -168,12 +168,14 @@ class MovableGrid(QGraphicsItem):
             label.setPos(0, 0)
             label.setPlainText(str(idx + 1))
             label.setDefaultTextColor(Qt.red)
+            label.setVisible(False)
         self.row_labels = [QGraphicsTextItem(parent=self) for _ in range(8)]
         alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
         for idx, label in enumerate(self.row_labels):
             label.setPos(0, 0)
             label.setPlainText(alphabet[idx])
             label.setDefaultTextColor(Qt.red)
+            label.setVisible(False)
 
     def paint(self, painter: QPainter, option: 'QStyleOptionGraphicsItem', widget=None):
         """This function needs to be reimplemented because the object is abstract"""
@@ -185,10 +187,10 @@ class MovableGrid(QGraphicsItem):
 
     def clear_grid(self):
         """Remove grid from scene and reset items"""
-        line_list = self.horizontal_lines + self.vertical_lines + [self.grid_right_edge, self.grid_left_edge] \
-                    + [self.grid_top_edge, self.grid_bottom_edge]
+        line_list = self.horizontal_lines + self.vertical_lines + [self.right_edge, self.left_edge] \
+                    + [self.top_edge, self.bottom_edge]
 
-        disk_list = [self.top_left_disk, self.top_right_disk, self.bottom_right_disk, self.bottom_left_disk]
+        disk_list = [self.tl_disk, self.tr_disk, self.br_disk, self.bl_disk]
 
         label_list = self.row_labels + self.col_labels
 
@@ -203,7 +205,7 @@ class MovableGrid(QGraphicsItem):
                 disk.setPos(0, 0)
             for label in label_list:
                 label.setPos(0, 0)
-                label.setPlainText('')
+                label.setVisible(False)
             self.square.setRect(0, 0, 0, 0)
             self.square.setPos(0, 0)
             self.corners_coordinates = []
@@ -253,16 +255,16 @@ class MovableGrid(QGraphicsItem):
             self.set_line(line, *coordinates.flatten())
 
         """Draw edges"""
-        self.set_line(self.grid_top_edge, *horizontal_lines_pts[0].flatten())
-        self.set_line(self.grid_bottom_edge, *horizontal_lines_pts[-1].flatten())
-        self.set_line(self.grid_left_edge, *vertical_lines_pts[0].flatten())
-        self.set_line(self.grid_right_edge, *vertical_lines_pts[-1].flatten())
+        self.set_line(self.top_edge, *horizontal_lines_pts[0].flatten())
+        self.set_line(self.bottom_edge, *horizontal_lines_pts[-1].flatten())
+        self.set_line(self.left_edge, *vertical_lines_pts[0].flatten())
+        self.set_line(self.right_edge, *vertical_lines_pts[-1].flatten())
 
         """Draw disks"""
-        self.set_disk(self.top_left_disk, *horizontal_lines_pts[0, 0], self.disk_radius)
-        self.set_disk(self.top_right_disk, *horizontal_lines_pts[0, 1], self.disk_radius)
-        self.set_disk(self.bottom_left_disk, *vertical_lines_pts[0, 1], self.disk_radius)
-        self.set_disk(self.bottom_right_disk, *vertical_lines_pts[-1, 1], self.disk_radius)
+        self.set_disk(self.tl_disk, *horizontal_lines_pts[0, 0], self.disk_radius)
+        self.set_disk(self.tr_disk, *horizontal_lines_pts[0, 1], self.disk_radius)
+        self.set_disk(self.bl_disk, *vertical_lines_pts[0, 1], self.disk_radius)
+        self.set_disk(self.br_disk, *vertical_lines_pts[-1, 1], self.disk_radius)
 
         """Draw resizing square"""
         x_square, y_square = vertical_lines_pts[-1, 1]
@@ -271,13 +273,28 @@ class MovableGrid(QGraphicsItem):
         self.set_square(self.square, x_square, y_square, self.disk_radius)
 
         """Draw labels"""
-        for label, coord in zip(self.col_labels, horizontal_lines_pts):
-            sign = np.sign(coord[0, 0] - coord[1, 0])
-            label_coord = coord[0] + [sign * 20, 0]  # 20 pxs distance from edge
-            label.setPos(*label_coord)
+        edge_offset = self.left_edge.line().length() / 24  # 24 = 12 x 2
+        """BUG phi might affect this"""
+        """Sign is used to place label outside the grid"""
+        sign_x = np.sign(self.right_edge.x() - self.left_edge.x())
+        sign_y = np.sign(self.top_edge.y() - self.bottom_edge.y())
+        for label, coord, in zip(self.col_labels, horizontal_lines_pts,):
+            font_offset_y = label.boundingRect().height() / 2
+            font_offset_x = label.boundingRect().width() / 2
+            """Offsets ensure that the font is placed central wrt grid"""
+            label_y = coord[0, 1] + edge_offset + (sign_y * font_offset_y)
+            label_x = coord[0, 0] - (sign_x * 10) - font_offset_x  # 10 pxs distance from edge
+            label.setPos(label_x, label_y)
+            label.setVisible(True)
+        edge_offset = self.top_edge.line().length() / 16  # 16 = 8 x 2
         for label, coord in zip(self.row_labels, vertical_lines_pts):
-            coord -= [-5, 20]  # 20 pxs distance from edge
-            label.setPos(*coord[0])
+            font_offset_x = label.boundingRect().height() / 2
+            font_offset_y = label.boundingRect().width() / 2
+            sign = np.sign(coord[0, 1] - coord[1, 1])
+            label_x = coord[0, 0] + edge_offset - font_offset_x
+            label_y = coord[0, 1] + (sign * 15) - font_offset_y  # 15 pxs distance from edge
+            label.setPos(label_x, label_y)
+            label.setVisible(True)
 
     def add_grid_to_scene(self):
         """Add all children items of MovableGrid to scene"""
@@ -285,10 +302,10 @@ class MovableGrid(QGraphicsItem):
 
     def set_immutable(self):
         """Change grid color, disable grid mobility and mouse interaction"""
-        line_list = self.horizontal_lines + self.vertical_lines + [self.grid_right_edge, self.grid_left_edge] \
-                    + [self.grid_top_edge, self.grid_bottom_edge]
+        line_list = self.horizontal_lines + self.vertical_lines + [self.right_edge, self.left_edge] \
+                    + [self.top_edge, self.bottom_edge]
 
-        disk_list = [self.top_left_disk, self.top_right_disk, self.bottom_right_disk, self.bottom_left_disk]
+        disk_list = [self.tl_disk, self.tr_disk, self.br_disk, self.bl_disk]
 
         label_list = self.row_labels + self.col_labels
 
@@ -312,10 +329,10 @@ class MovableGrid(QGraphicsItem):
 
     def move_grid(self, offset_x, offset_y):
         """Move the whole grid by offset"""
-        line_list = self.horizontal_lines + self.vertical_lines + [self.grid_right_edge, self.grid_left_edge] \
-                    + [self.grid_top_edge, self.grid_bottom_edge]
+        line_list = self.horizontal_lines + self.vertical_lines + [self.right_edge, self.left_edge] \
+                    + [self.top_edge, self.bottom_edge]
 
-        disk_list = [self.top_left_disk, self.top_right_disk, self.bottom_right_disk, self.bottom_left_disk]
+        disk_list = [self.tl_disk, self.tr_disk, self.br_disk, self.bl_disk]
 
         label_list = self.row_labels + self.col_labels
 
@@ -346,22 +363,22 @@ class MovableGrid(QGraphicsItem):
     def rotate_grid(self, old_mouse_pos: QPointF, new_mouse_pos: QPointF, caller: QGraphicsEllipseItem):
         """Rotate grid by pivoting it around the disk opposite to the caller disk. The angle follows the mouse cursor.
         Refer to PDF file for the notation used here."""
-        line_list = self.horizontal_lines + self.vertical_lines + [self.grid_right_edge, self.grid_left_edge] \
-                    + [self.grid_top_edge, self.grid_bottom_edge]
+        line_list = self.horizontal_lines + self.vertical_lines + [self.right_edge, self.left_edge] \
+                    + [self.top_edge, self.bottom_edge]
 
-        disk_list = [self.top_left_disk, self.top_right_disk, self.bottom_right_disk, self.bottom_left_disk]
+        disk_list = [self.tl_disk, self.tr_disk, self.br_disk, self.bl_disk]
 
         label_list = self.row_labels + self.col_labels
 
         """Choose pivoting disk as opposite corner to caller disk"""
-        if caller.scenePos() == self.top_left_disk.scenePos():
-            pivot_disk = self.bottom_right_disk
-        elif caller.scenePos() == self.top_right_disk.scenePos():
-            pivot_disk = self.bottom_left_disk
-        elif caller.scenePos() == self.bottom_left_disk.scenePos():
-            pivot_disk = self.top_right_disk
-        elif caller.scenePos() == self.bottom_right_disk.scenePos():
-            pivot_disk = self.top_left_disk
+        if caller.scenePos() == self.tl_disk.scenePos():
+            pivot_disk = self.br_disk
+        elif caller.scenePos() == self.tr_disk.scenePos():
+            pivot_disk = self.bl_disk
+        elif caller.scenePos() == self.bl_disk.scenePos():
+            pivot_disk = self.tr_disk
+        elif caller.scenePos() == self.br_disk.scenePos():
+            pivot_disk = self.tl_disk
         else:
             pivot_disk = None
             print('error')
@@ -451,7 +468,6 @@ class MovableGrid(QGraphicsItem):
     def resize_grid(self):
         """Take out coordinate of bottom right corner. This calls virtual function
         mouseMoveEvent from GridWindow"""
-        print('res', self.corners_coordinates)
         self.corners_coordinates = self.corners_coordinates[:-1]
 
 
