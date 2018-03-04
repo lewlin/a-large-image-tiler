@@ -143,7 +143,7 @@ class MovableGrid(QGraphicsItem):
         self.color = color
         self.scene = scene
         self.corners_coordinates = []  # top left and bottom right corners coordinates
-        self.phi = 0  # positive angle between top edge and x-axis (rads).
+        self.phi = 0  # clockwise angle between top edge and x-axis (rads).
         """Grid has 11 horizontal lines and 7 vertical lines"""
         self.horizontal_lines = [MovableLine(allow_vertical_movement=False, color=color, parent_grid=self)
                                  for _ in itertools.repeat(None, 11)]
@@ -163,6 +163,7 @@ class MovableGrid(QGraphicsItem):
         """Resizing square"""
         self.square = ResizingSquare(parent_grid=self, color=color)
         """Grid labels"""
+        self.font_dist = 10  # distance (pxs) from labels to grid
         self.col_labels = [QGraphicsTextItem(parent=self) for _ in range(12)]
         for idx, label in enumerate(self.col_labels):
             label.setPos(0, 0)
@@ -272,29 +273,34 @@ class MovableGrid(QGraphicsItem):
         y_square -= self.disk_radius
         self.set_square(self.square, x_square, y_square, self.disk_radius)
 
-        """Draw labels"""
-        edge_offset = self.left_edge.line().length() / 24  # 24 = 12 x 2
-        """BUG phi might affect this"""
-        """Sign is used to place label outside the grid"""
-        sign_x = np.sign(self.right_edge.x() - self.left_edge.x())
-        sign_y = np.sign(self.top_edge.y() - self.bottom_edge.y())
+        """Find grid orientation. That depends on both phi, and the way the grid was placed by the user"""
+        # sign_x = np.sign(self.right_edge.x() - self.left_edge.x())  # If left_edge the left edge?
+        # sign_y = np.sign(self.top_edge.y() - self.bottom_edge.y())
+        print('phi ', self.phi)
+        """Draw horizontal labels"""
+        v_edge_offset = self.left_edge.line().length() / 24  # 24 = 12 x 2  # Rifare con l2
         for label, coord, in zip(self.col_labels, horizontal_lines_pts,):
+            x_c = coord[0, 0]
+            y_c = coord[0, 1]
+            x_b = x_c - v_edge_offset * sin_phi
+            y_b = y_c + v_edge_offset * cos_phi
+            x_d = x_b - self.font_dist * cos_phi
+            y_d = y_b + self.font_dist * sin_phi
             font_offset_y = label.boundingRect().height() / 2
             font_offset_x = label.boundingRect().width() / 2
-            """Offsets ensure that the font is placed central wrt grid"""
-            label_y = coord[0, 1] + edge_offset + (sign_y * font_offset_y)
-            label_x = coord[0, 0] - (sign_x * 10) - font_offset_x  # 10 pxs distance from edge
+            label_y = y_d - font_offset_y
+            label_x = x_d - font_offset_x
             label.setPos(label_x, label_y)
             label.setVisible(True)
-        edge_offset = self.top_edge.line().length() / 16  # 16 = 8 x 2
-        for label, coord in zip(self.row_labels, vertical_lines_pts):
-            font_offset_x = label.boundingRect().height() / 2
-            font_offset_y = label.boundingRect().width() / 2
-            sign = np.sign(coord[0, 1] - coord[1, 1])
-            label_x = coord[0, 0] + edge_offset - font_offset_x
-            label_y = coord[0, 1] + (sign * 15) - font_offset_y  # 15 pxs distance from edge
-            label.setPos(label_x, label_y)
-            label.setVisible(True)
+        # h_edge_offset = self.top_edge.line().length() / 16  # 16 = 8 x 2
+        # for label, coord in zip(self.row_labels, vertical_lines_pts):
+        #     font_offset_x = label.boundingRect().height() / 2
+        #     font_offset_y = label.boundingRect().width() / 2
+        #     sign = np.sign(coord[0, 1] - coord[1, 1])
+        #     label_x = coord[0, 0] + h_edge_offset - font_offset_x
+        #     label_y = coord[0, 1] + (sign * 15) - font_offset_y  # 15 pxs distance from edge
+        #     label.setPos(label_x, label_y)
+        #     label.setVisible(True)
 
     def add_grid_to_scene(self):
         """Add all children items of MovableGrid to scene"""
@@ -383,86 +389,95 @@ class MovableGrid(QGraphicsItem):
             pivot_disk = None
             print('error')
 
-        """Pivoting pt should be the center of the pivoting disk. scenePos() yields top left of bounding rect"""
-        pivoting_point = pivot_disk.scenePos() + QPointF(self.disk_radius, self.disk_radius)
+        """Pivoting pt is the center of the pivoting disk. scenePos() yields top left of bounding rect"""
+        pivoting_pt = pivot_disk.scenePos() + QPointF(self.disk_radius, self.disk_radius)
 
         """Compute angle offset between pivoting point and new/old mouse coordinates"""
-        old_offset_x = old_mouse_pos.x() - pivoting_point.x()
-        old_offset_y = old_mouse_pos.y() - pivoting_point.y()
-        new_offset_x = new_mouse_pos.x() - pivoting_point.x()
-        new_offset_y = new_mouse_pos.y() - pivoting_point.y()
-        old_alpha = np.arctan2(old_offset_y, old_offset_x)  # in rads, between -pi and pi
+        old_offset_x = old_mouse_pos.x() - pivoting_pt.x()
+        old_offset_y = old_mouse_pos.y() - pivoting_pt.y()
+        new_offset_x = new_mouse_pos.x() - pivoting_pt.x()
+        new_offset_y = new_mouse_pos.y() - pivoting_pt.y()
+        old_alpha = np.arctan2(old_offset_y, old_offset_x)  # rads, [-pi, pi]
         new_alpha = np.arctan2(new_offset_y, new_offset_x)  # 0 is // to x-axis
-        delta_alpha = new_alpha - old_alpha  # positive is clockwise
+        delta_alpha = new_alpha - old_alpha  # CW
 
         """Update grid angle"""
         self.phi += delta_alpha
 
-        """Update corner coordinates"""
-        tl_x_pv = self.corners_coordinates[0].x() - pivoting_point.x()
-        tl_y_pv = self.corners_coordinates[0].y() - pivoting_point.y()
-        br_x_pv = self.corners_coordinates[1].x() - pivoting_point.x()
-        br_y_pv = self.corners_coordinates[1].y() - pivoting_point.y()
+        """Update corners coordinates"""
+        tl_x_pv = self.corners_coordinates[0].x() - pivoting_pt.x()
+        tl_y_pv = self.corners_coordinates[0].y() - pivoting_pt.y()
+        br_x_pv = self.corners_coordinates[1].x() - pivoting_pt.x()
+        br_y_pv = self.corners_coordinates[1].y() - pivoting_pt.y()
         cos_delta_alpha = np.cos(delta_alpha)
         sin_delta_alpha = np.sin(delta_alpha)
         rotation_matrix = np.array([[cos_delta_alpha, -sin_delta_alpha],[sin_delta_alpha, cos_delta_alpha]])
-        tl_x_new, tl_y_new = np.dot(rotation_matrix, [tl_x_pv, tl_y_pv]) + [pivoting_point.x(), pivoting_point.y()]
-        br_x_new, br_y_new = np.dot(rotation_matrix, [br_x_pv, br_y_pv]) + [pivoting_point.x(), pivoting_point.y()]
+        tl_x_new, tl_y_new = np.dot(rotation_matrix, [tl_x_pv, tl_y_pv]) + [pivoting_pt.x(), pivoting_pt.y()]
+        br_x_new, br_y_new = np.dot(rotation_matrix, [br_x_pv, br_y_pv]) + [pivoting_pt.x(), pivoting_pt.y()]
         self.corners_coordinates = [QPointF(tl_x_new, tl_y_new), QPointF(br_x_new, br_y_new)]
 
-        """Update disks position. Maintain distance between pivoting point but update angle by offset"""
+        """Update disks positions"""
         for disk in disk_list:
             current_disk_pos = disk.scenePos() + QPointF(self.disk_radius, self.disk_radius)
-            delta_x = current_disk_pos.x() - pivoting_point.x()
-            delta_y = current_disk_pos.y() - pivoting_point.y()
+            delta_x = current_disk_pos.x() - pivoting_pt.x()
+            delta_y = current_disk_pos.y() - pivoting_pt.y()
             disk_current_angle = np.arctan2(delta_y, delta_x)
             disk_new_angle = disk_current_angle + delta_alpha
-            length_to_pv_pt = QLineF(pivoting_point, current_disk_pos).length()
-            disk_new_tl_x = length_to_pv_pt * np.cos(disk_new_angle) + pivoting_point.x() - self.disk_radius
-            disk_new_tl_y = length_to_pv_pt * np.sin(disk_new_angle) + pivoting_point.y() - self.disk_radius
+            length_to_pv_pt = QLineF(pivoting_pt, current_disk_pos).length()
+            disk_new_tl_x = length_to_pv_pt * np.cos(disk_new_angle) + pivoting_pt.x() - self.disk_radius
+            disk_new_tl_y = length_to_pv_pt * np.sin(disk_new_angle) + pivoting_pt.y() - self.disk_radius
             disk.setPos(QPointF(disk_new_tl_x, disk_new_tl_y))  # use set disk instead?
 
         """Update resizing square position"""
         current_square_pos = self.square.scenePos() + QPointF(self.disk_radius, self.disk_radius)
-        delta_x = current_square_pos.x() - pivoting_point.x()
-        delta_y = current_square_pos.y() - pivoting_point.y()
+        delta_x = current_square_pos.x() - pivoting_pt.x()
+        delta_y = current_square_pos.y() - pivoting_pt.y()
         square_current_angle = np.arctan2(delta_y, delta_x)
         square_new_angle = square_current_angle + delta_alpha
-        length_to_pv_pt = QLineF(pivoting_point, current_square_pos).length()
-        square_new_tl_x = length_to_pv_pt * np.cos(square_new_angle) + pivoting_point.x() - self.disk_radius
-        square_new_tl_y = length_to_pv_pt * np.sin(square_new_angle) + pivoting_point.y() - self.disk_radius
+        length_to_pv_pt = QLineF(pivoting_pt, current_square_pos).length()
+        square_new_tl_x = length_to_pv_pt * np.cos(square_new_angle) + pivoting_pt.x() - self.disk_radius
+        square_new_tl_y = length_to_pv_pt * np.sin(square_new_angle) + pivoting_pt.y() - self.disk_radius
         self.square.setPos(QPointF(square_new_tl_x, square_new_tl_y))  # use set disk instead?
 
-        """Update line position. Maintain distance between pivoting point but update angle by offset"""
+        """Update lines positions"""
         for line in line_list:
             line_loc = line.line()  # in local coordinates
             line_offset = line.scenePos()
             line_pt1 = line_loc.p1() + line_offset
             line_pt2 = line_loc.p2() + line_offset
-            delta_y1 = line_pt1.y() - pivoting_point.y()
-            delta_x1 = line_pt1.x() - pivoting_point.x()
-            delta_y2 = line_pt2.y() - pivoting_point.y()
-            delta_x2 = line_pt2.x() - pivoting_point.x()
+            delta_y1 = line_pt1.y() - pivoting_pt.y()
+            delta_x1 = line_pt1.x() - pivoting_pt.x()
+            delta_y2 = line_pt2.y() - pivoting_pt.y()
+            delta_x2 = line_pt2.x() - pivoting_pt.x()
             line_angle1_new = np.arctan2(delta_y1, delta_x1) + delta_alpha
             line_angle2_new = np.arctan2(delta_y2, delta_x2) + delta_alpha
-            length_to_pv_pt_1 = QLineF(pivoting_point, line_pt1).length()
-            length_to_pv_pt_2 = QLineF(pivoting_point, line_pt2).length()
-            line_new_x1 = length_to_pv_pt_1 * np.cos(line_angle1_new) + pivoting_point.x()
-            line_new_y1 = length_to_pv_pt_1 * np.sin(line_angle1_new) + pivoting_point.y()
-            line_new_x2 = length_to_pv_pt_2 * np.cos(line_angle2_new) + pivoting_point.x()
-            line_new_y2 = length_to_pv_pt_2 * np.sin(line_angle2_new) + pivoting_point.y()
+            length_to_pv_pt_1 = QLineF(pivoting_pt, line_pt1).length()
+            length_to_pv_pt_2 = QLineF(pivoting_pt, line_pt2).length()
+            line_new_x1 = length_to_pv_pt_1 * np.cos(line_angle1_new) + pivoting_pt.x()
+            line_new_y1 = length_to_pv_pt_1 * np.sin(line_angle1_new) + pivoting_pt.y()
+            line_new_x2 = length_to_pv_pt_2 * np.cos(line_angle2_new) + pivoting_pt.x()
+            line_new_y2 = length_to_pv_pt_2 * np.sin(line_angle2_new) + pivoting_pt.y()
             self.set_line(line, line_new_x1, line_new_y1, line_new_x2, line_new_y2)
 
-        """Update disks position. Maintain distance between pivoting point but update angle by offset"""
+        """Update labels positions"""
         for label in label_list:
-            current_label_pos = label.scenePos()
-            delta_x = current_label_pos.x() - pivoting_point.x()
-            delta_y = current_label_pos.y() - pivoting_point.y()
-            label_current_angle = np.arctan2(delta_y, delta_x)
-            label_new_angle = label_current_angle + delta_alpha
-            length_to_pv_pt = QLineF(pivoting_point, current_label_pos).length()
-            label_new_tl_x = length_to_pv_pt * np.cos(label_new_angle) + pivoting_point.x()
-            label_new_tl_y = length_to_pv_pt * np.sin(label_new_angle) + pivoting_point.y()
+            """The label center coordinates are x_d, y_d (see fig.)"""
+            curr_label_pos = label.scenePos()
+            font_offset_y = label.boundingRect().height() / 2
+            font_offset_x = label.boundingRect().width() / 2
+            assert(font_offset_x > 0 and font_offset_y > 0)
+            x_d = curr_label_pos.x() + font_offset_x
+            y_d = curr_label_pos.y() + font_offset_y
+            """delta is the vector from pivoting pt to font center"""
+            delta_x = x_d - pivoting_pt.x()
+            delta_y = y_d - pivoting_pt.y()
+            delta = np.sqrt((delta_x ** 2) + (delta_y ** 2))
+            label_curr_angle = np.arctan2(delta_y, delta_x)
+            label_new_angle = label_curr_angle + delta_alpha
+            x_d = delta * np.cos(label_new_angle) + pivoting_pt.x()
+            y_d = delta * np.sin(label_new_angle) + pivoting_pt.y()
+            label_new_tl_x = x_d - font_offset_x
+            label_new_tl_y = y_d - font_offset_y
             label.setPos(QPointF(label_new_tl_x, label_new_tl_y))
 
     def resize_grid(self):
