@@ -1,6 +1,7 @@
 import sys
 import itertools
 import numpy as np
+from math import isclose, fmod
 from PyQt5.QtCore import Qt, pyqtSlot, QPointF, QRectF, QLineF
 from PyQt5.QtGui import QMouseEvent, QPen, QPainter
 from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem, QGraphicsLineItem, QApplication,\
@@ -143,7 +144,9 @@ class MovableGrid(QGraphicsItem):
         self.color = color
         self.scene = scene
         self.corners_coordinates = []  # top left and bottom right corners coordinates
-        self.phi = 0  # clockwise angle between top edge and x-axis (rads).
+        self.phi = 0  # CW angle between top edge and x-axis (rads) [-pi, pi]
+        self.sign_x = 1  # if -1 left/right edge corresponds to right/left
+        self.sign_y = 1  # if -1 top/bottom edge corresponds to bottom/top
         """Grid has 11 horizontal lines and 7 vertical lines"""
         self.horizontal_lines = [MovableLine(allow_vertical_movement=False, color=color, parent_grid=self)
                                  for _ in itertools.repeat(None, 11)]
@@ -163,7 +166,7 @@ class MovableGrid(QGraphicsItem):
         """Resizing square"""
         self.square = ResizingSquare(parent_grid=self, color=color)
         """Grid labels"""
-        self.font_dist = 10  # distance (pxs) from labels to grid
+        self.font_dist = 15  # distance (pxs) from labels to grid
         self.col_labels = [QGraphicsTextItem(parent=self) for _ in range(12)]
         for idx, label in enumerate(self.col_labels):
             label.setPos(0, 0)
@@ -185,6 +188,22 @@ class MovableGrid(QGraphicsItem):
     def boundingRect(self):
         """This function needs to be reimplemented because the object is abstract"""
         return QRectF()
+
+    def angle_mod(self, angle):
+        """Takes angle and returns it in [-pi, pi]. It is used when angles defined [-pi , pi]
+        are summed or subtrated"""
+        angle += np.pi
+        angle = angle % (2 * np.pi)
+        angle -= np.pi
+        return angle
+
+    def get_phi(self):
+        """Debug function used to ensure that self.phi corresponds to angle between top edge and x-axis"""
+        edge = self.top_edge.line()
+        delta_x = edge.x2() - edge.x1()
+        delta_y = edge.y2() - edge.y1()
+        angle = np.arctan2(delta_y, delta_x)
+        return angle
 
     def clear_grid(self):
         """Remove grid from scene and reset items"""
@@ -231,6 +250,10 @@ class MovableGrid(QGraphicsItem):
         """ Draw a regular grid given the coordinates of the two corners, angled by self.angle.
         This function manipulates line positions but do not make direct changes to scene.
         Refer to the attached PDF for the notation used"""
+        """Check phi"""
+        assert isclose((self.phi - self.get_phi()) % np.pi, 0, abs_tol=1e-4, rel_tol=1),\
+            str(self.phi) + ', measured: ' + str(self.get_phi())
+
         """Compute angles and distances"""
         tl_br_line = QLineF(tl_x, tl_y, br_x, br_y)
         d = tl_br_line.length()
@@ -273,34 +296,49 @@ class MovableGrid(QGraphicsItem):
         y_square -= self.disk_radius
         self.set_square(self.square, x_square, y_square, self.disk_radius)
 
-        """Find grid orientation. That depends on both phi, and the way the grid was placed by the user"""
-        # sign_x = np.sign(self.right_edge.x() - self.left_edge.x())  # If left_edge the left edge?
-        # sign_y = np.sign(self.top_edge.y() - self.bottom_edge.y())
-        print('phi ', self.phi)
-        """Draw horizontal labels"""
-        v_edge_offset = self.left_edge.line().length() / 24  # 24 = 12 x 2  # Rifare con l2
-        for label, coord, in zip(self.col_labels, horizontal_lines_pts,):
+        """sign_x,y account for grid flips. e.g. if sign_y < 0 then top edge is bottom.
+        Signs account for how the user places/resize grid and is independent of phi.
+        Signs are used to draw labels outside the grid."""
+        if - np.pi / 2 < self.phi < np.pi / 2:
+            self.sign_y = np.sign(self.bl_disk.y() - self.tl_disk.y())
+            self.sign_x = np.sign(self.tr_disk.x() - self.tl_disk.x())
+        else:
+            self.sign_y = - np.sign(self.bl_disk.y() - self.tl_disk.y())
+            self.sign_x = - np.sign(self.tr_disk.x() - self.tl_disk.x())
+
+        """Draw numbers"""
+        v_edge_offset = self.left_edge.line().length() / 24  # 24 = 12 x 2
+        assert v_edge_offset >= 0, v_edge_offset
+        for label, coord, in zip(self.col_labels, horizontal_lines_pts):
             x_c = coord[0, 0]
             y_c = coord[0, 1]
-            x_b = x_c - v_edge_offset * sin_phi
-            y_b = y_c + v_edge_offset * cos_phi
-            x_d = x_b - self.font_dist * cos_phi
-            y_d = y_b + self.font_dist * sin_phi
+            x_b = x_c - self.sign_y * v_edge_offset * sin_phi
+            y_b = y_c + self.sign_y * v_edge_offset * cos_phi
+            x_d = x_b - self.sign_x * self.font_dist * cos_phi
+            y_d = y_b - self.sign_x * self.font_dist * sin_phi
             font_offset_y = label.boundingRect().height() / 2
             font_offset_x = label.boundingRect().width() / 2
             label_y = y_d - font_offset_y
             label_x = x_d - font_offset_x
             label.setPos(label_x, label_y)
             label.setVisible(True)
-        # h_edge_offset = self.top_edge.line().length() / 16  # 16 = 8 x 2
-        # for label, coord in zip(self.row_labels, vertical_lines_pts):
-        #     font_offset_x = label.boundingRect().height() / 2
-        #     font_offset_y = label.boundingRect().width() / 2
-        #     sign = np.sign(coord[0, 1] - coord[1, 1])
-        #     label_x = coord[0, 0] + h_edge_offset - font_offset_x
-        #     label_y = coord[0, 1] + (sign * 15) - font_offset_y  # 15 pxs distance from edge
-        #     label.setPos(label_x, label_y)
-        #     label.setVisible(True)
+
+        """Draw letters"""
+        h_edge_offset = self.top_edge.line().length() / 16  # 16 = 8 x 2
+        assert h_edge_offset >= 0, h_edge_offset
+        for label, coord, in zip(self.row_labels, vertical_lines_pts):
+            x_c = coord[0, 0]
+            y_c = coord[0, 1]
+            x_f = x_c + self.sign_x * h_edge_offset * cos_phi
+            y_f = y_c + self.sign_x * h_edge_offset * sin_phi
+            x_e = x_f + self.sign_y * self.font_dist * sin_phi
+            y_e = y_f - self.sign_y * self.font_dist * cos_phi
+            font_offset_y = label.boundingRect().height() / 2
+            font_offset_x = label.boundingRect().width() / 2
+            label_y = y_e - font_offset_y
+            label_x = x_e - font_offset_x
+            label.setPos(label_x, label_y)
+            label.setVisible(True)
 
     def add_grid_to_scene(self):
         """Add all children items of MovableGrid to scene"""
@@ -367,8 +405,8 @@ class MovableGrid(QGraphicsItem):
                                     for pt in self.corners_coordinates]
 
     def rotate_grid(self, old_mouse_pos: QPointF, new_mouse_pos: QPointF, caller: QGraphicsEllipseItem):
-        """Rotate grid by pivoting it around the disk opposite to the caller disk. The angle follows the mouse cursor.
-        Refer to PDF file for the notation used here."""
+        """Rotate grid by pivoting it around the disk opposite to the caller disk. The angle follows
+        the mouse cursor. Refer to PDF file for the notation used here."""
         line_list = self.horizontal_lines + self.vertical_lines + [self.right_edge, self.left_edge] \
                     + [self.top_edge, self.bottom_edge]
 
@@ -399,10 +437,10 @@ class MovableGrid(QGraphicsItem):
         new_offset_y = new_mouse_pos.y() - pivoting_pt.y()
         old_alpha = np.arctan2(old_offset_y, old_offset_x)  # rads, [-pi, pi]
         new_alpha = np.arctan2(new_offset_y, new_offset_x)  # 0 is // to x-axis
-        delta_alpha = new_alpha - old_alpha  # CW
+        delta_alpha = self.angle_mod(new_alpha - old_alpha)  # CW
 
         """Update grid angle"""
-        self.phi += delta_alpha
+        self.phi = self.angle_mod(self.phi + delta_alpha)
 
         """Update corners coordinates"""
         tl_x_pv = self.corners_coordinates[0].x() - pivoting_pt.x()
@@ -479,6 +517,9 @@ class MovableGrid(QGraphicsItem):
             label_new_tl_x = x_d - font_offset_x
             label_new_tl_y = y_d - font_offset_y
             label.setPos(QPointF(label_new_tl_x, label_new_tl_y))
+
+            """Check phi"""
+            assert isclose(self.phi, self.get_phi(), rel_tol=1e-5), str(self.phi) + ', measured: ' + str(self.get_phi())
 
     def resize_grid(self):
         """Take out coordinate of bottom right corner. This calls virtual function
