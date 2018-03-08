@@ -537,14 +537,14 @@ class MovableGrid(QGraphicsItem):
         curr_square_pos = self.square.scenePos() \
                              + QPointF(self.disk_radius, self.disk_radius)
         delta_x = curr_square_pos.x() - pivot_x
-        delta_y = curr_square_pos.y() - pivoting_pt.y()
+        delta_y = curr_square_pos.y() - pivot_y
         square_current_angle = np.arctan2(delta_y, delta_x)
         square_new_angle = square_current_angle + delta_alpha
         length_to_pv_pt = QLineF(pivoting_pt, curr_square_pos).length()
         square_new_tl_x = length_to_pv_pt * np.cos(square_new_angle) \
-                          + pivoting_pt.x() - self.disk_radius
+                          + pivot_x - self.disk_radius
         square_new_tl_y = length_to_pv_pt * np.sin(square_new_angle) \
-                          + pivoting_pt.y() - self.disk_radius
+                          + pivot_y- self.disk_radius
         self.square.setPos(QPointF(square_new_tl_x, square_new_tl_y))
 
         """Update lines positions"""
@@ -553,19 +553,19 @@ class MovableGrid(QGraphicsItem):
             line_offset = line.scenePos()
             line_pt1 = line_loc.p1() + line_offset
             line_pt2 = line_loc.p2() + line_offset
-            delta_y1 = line_pt1.y() - pivoting_pt.y()
-            delta_x1 = line_pt1.x() - pivoting_pt.x()
-            delta_y2 = line_pt2.y() - pivoting_pt.y()
-            delta_x2 = line_pt2.x() - pivoting_pt.x()
+            delta_y1 = line_pt1.y() - pivot_y
+            delta_x1 = line_pt1.x() - pivot_x
+            delta_y2 = line_pt2.y() - pivot_y
+            delta_x2 = line_pt2.x() - pivot_x
             line_angle1_new = np.arctan2(delta_y1, delta_x1) + delta_alpha
             line_angle2_new = np.arctan2(delta_y2, delta_x2) + delta_alpha
             length_to_pv_pt_1 = QLineF(pivoting_pt, line_pt1).length()
             length_to_pv_pt_2 = QLineF(pivoting_pt, line_pt2).length()
-            line_new_x1 = length_to_pv_pt_1 * np.cos(line_angle1_new) + pivoting_pt.x()
-            line_new_y1 = length_to_pv_pt_1 * np.sin(line_angle1_new) + pivoting_pt.y()
-            line_new_x2 = length_to_pv_pt_2 * np.cos(line_angle2_new) + pivoting_pt.x()
-            line_new_y2 = length_to_pv_pt_2 * np.sin(line_angle2_new) + pivoting_pt.y()
-            self.set_line(line, line_new_x1, line_new_y1, line_new_x2, line_new_y2)
+            line_x1 = length_to_pv_pt_1 * np.cos(line_angle1_new) + pivot_x
+            line_y1 = length_to_pv_pt_1 * np.sin(line_angle1_new) + pivot_y
+            line_x2 = length_to_pv_pt_2 * np.cos(line_angle2_new) + pivot_x
+            line_y2 = length_to_pv_pt_2 * np.sin(line_angle2_new) + pivot_y
+            self.set_line(line, line_x1, line_y1, line_x2, line_y2)
 
         """Update labels positions"""
         for label in label_list:
@@ -577,13 +577,13 @@ class MovableGrid(QGraphicsItem):
             x_d = curr_label_pos.x() + font_offset_x
             y_d = curr_label_pos.y() + font_offset_y
             """delta is the vector from pivoting pt to font center"""
-            delta_x = x_d - pivoting_pt.x()
-            delta_y = y_d - pivoting_pt.y()
+            delta_x = x_d - pivot_x
+            delta_y = y_d - pivot_y
             delta = np.sqrt((delta_x ** 2) + (delta_y ** 2))
             label_curr_angle = np.arctan2(delta_y, delta_x)
             label_new_angle = label_curr_angle + delta_alpha
-            x_d = delta * np.cos(label_new_angle) + pivoting_pt.x()
-            y_d = delta * np.sin(label_new_angle) + pivoting_pt.y()
+            x_d = delta * np.cos(label_new_angle) + pivot_x
+            y_d = delta * np.sin(label_new_angle) + pivot_y
             label_new_tl_x = x_d - font_offset_x
             label_new_tl_y = y_d - font_offset_y
             label.setPos(QPointF(label_new_tl_x, label_new_tl_y))
@@ -631,7 +631,8 @@ class GridWindow(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent):
         """Virtual function that handles mouse buttons click"""
-        if event.button() == Qt.LeftButton and len(self.curr_grid.tl_br_coord) < 2:
+        if event.button() == Qt.LeftButton and \
+                len(self.curr_grid.tl_br_coord) < 2:
             """If left click and grid corners are not fully specified, append 
             mouse coordinates to grid coordinates"""
             local_mouse_coordinates = self.mapToScene(event.pos())
