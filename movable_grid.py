@@ -1,5 +1,4 @@
 import sys
-import itertools
 import numpy as np
 from math import isclose
 from PyQt5.QtCore import Qt, pyqtSlot, QPointF, QRectF, QLineF
@@ -166,25 +165,31 @@ class MovableGrid(QGraphicsItem):
         self.sign_y = 1  # if -1 top/bottom edge corresponds to bottom/top
 
         """Grid (w/o edges) has 11 horizontal lines and 7 vertical lines"""
-        self.horizontal_lines = [MovableLine(allow_vertical_movement=False,
-                                             color=color, parent_grid=self)
-                                 for _ in itertools.repeat(None, 11)]
-        self.vertical_lines = [MovableLine(allow_horizontal_movement=False,
-                                           color=color, parent_grid=self)
-                               for _ in itertools.repeat(None, 7)]
+        self.horizontal_lines = [
+            MovableLine(allow_vertical_movement=False,
+                        color=color,
+                        parent_grid=self)
+            for _ in range(11)
+        ]
+        self.vertical_lines = [
+            MovableLine(allow_horizontal_movement=False,
+                        color=color,
+                        parent_grid=self)
+            for _ in range(7)
+        ]
 
         """"Grid edges (nomenclature assumes signs_x,y = 1)"""
-        self.top_edge, self.bottom_edge, self.left_edge, self.right_edge \
-            = [MovableLine(move_all=True,
-                           parent_grid=self,
-                           color=color)
-               for _ in itertools.repeat(None, 4)]
+        self.top_edge, self.bottom_edge, self.left_edge, self.right_edge = [
+            MovableLine(move_all=True, parent_grid=self, color=color)
+            for _ in range(4)
+        ]
 
         """Corner disks (used to rotate the grid)"""
         self.disk_radius = 4  # in pxs
-        self.tl_disk, self.tr_disk, self.bl_disk, self.br_disk \
-            = [MovableDisk(parent_grid=self, color=color)
-               for _ in itertools.repeat(None, 4)]
+        self.tl_disk, self.tr_disk, self.bl_disk, self.br_disk = [
+            MovableDisk(parent_grid=self, color=color)
+            for _ in range(4)
+        ]
 
         """Resizing square"""
         self.square = ResizingSquare(parent_grid=self, color=color)
@@ -544,7 +549,7 @@ class MovableGrid(QGraphicsItem):
         square_new_tl_x = length_to_pv_pt * np.cos(square_new_angle) \
                           + pivot_x - self.disk_radius
         square_new_tl_y = length_to_pv_pt * np.sin(square_new_angle) \
-                          + pivot_y- self.disk_radius
+                          + pivot_y - self.disk_radius
         self.square.setPos(QPointF(square_new_tl_x, square_new_tl_y))
 
         """Update lines positions"""
