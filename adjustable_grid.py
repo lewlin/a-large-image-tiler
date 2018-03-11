@@ -11,9 +11,9 @@ from PyQt5.QtWidgets import QGraphicsScene, QGraphicsItem, \
 class ResizingSquare(QGraphicsRectItem):
     """Little square next to bottom right corner, used to resize the grid"""
     def __init__(self, *,
-                 parent_grid: QGriaphicsItem,  # MOVABLE GRID??
+                 parent_grid: QGraphicsItem,  # MOVABLE GRID??
                  color: Qt.GlobalColor=Qt.red):
-        """Initialize square with QT parent `parent_grid` and color `color`"""
+        """Initialize square with QT parent `parent_grid` and initial_color `initial_color`"""
         super().__init__(parent=parent_grid)
         self.setBrush(color)
         self.setAcceptHoverEvents(True)  # mouse cursor entering/exiting item
@@ -44,7 +44,7 @@ class MovableDisk(QGraphicsEllipseItem):
     def __init__(self, *,
                  parent_grid: QGraphicsItem,
                  color: Qt.GlobalColor=Qt.red):
-        """Initialize disk as parent of parent_grid with color color"""
+        """Initialize disk as parent of parent_grid with initial_color initial_color"""
         super().__init__(parent=parent_grid)
         self.setBrush(color)
         self.setAcceptHoverEvents(True)  # mouse cursor entering/exiting item
@@ -86,7 +86,7 @@ class MovableLine(QGraphicsLineItem):
                  allow_vertical_movement: bool=False,
                  move_all: bool=False,
                  color: Qt.GlobalColor=Qt.red):
-        """Initialize line w color `color` and QT parent `parent_grid`.
+        """Initialize line w initial_color `initial_color` and QT parent `parent_grid`.
         The line can be dragged by the mouse according if flags
         `allow_horizontal/vertical_movement` are `True`.
         If `move_all=True`, moving the line moves the whole grid."""
@@ -149,12 +149,16 @@ class MovableLine(QGraphicsLineItem):
     def mouseReleaseEvent(self, event: 'QGraphicsSceneMouseEvent'): pass
 
 
-class MovableGrid(QGraphicsItem):
+class AdjustableGrid(QGraphicsItem):
     """A 12 x 8 movable/resizable grid. Grid is an abstract QT object: adding
     it to scene automatically adds the children objects (lines, disks, etc.)"""
 
-    def __init__(self, *, scene: QGraphicsScene, color: Qt.GlobalColor=Qt.red):
-        """Init grid on color `color` and assign it to a `QGraphicsScene scene`.
+    def __init__(self, *,
+                 scene: QGraphicsScene,
+                 color: Qt.GlobalColor=Qt.red,
+                 no_rows: int=12,
+                 no_cols: int=8):
+        """Init grid on initial_color `initial_color` and assign it to a `QGraphicsScene scene`.
         Grid is not displayed until `add_grid_to_scene` is called."""
         super().__init__()
         self.color = color
@@ -164,18 +168,21 @@ class MovableGrid(QGraphicsItem):
         self.sign_x = 1  # if -1 left/right edge corresponds to right/left
         self.sign_y = 1  # if -1 top/bottom edge corresponds to bottom/top
 
+        self.no_cols = no_cols  # grid cols
+        self.no_rows = no_rows # grid rows
+
         """Grid (w/o edges) has 11 horizontal lines and 7 vertical lines"""
         self.horizontal_lines = [
             MovableLine(allow_vertical_movement=False,
                         color=color,
                         parent_grid=self)
-            for _ in range(11)
+            for _ in range(self.no_rows - 1)
         ]
         self.vertical_lines = [
             MovableLine(allow_horizontal_movement=False,
                         color=color,
                         parent_grid=self)
-            for _ in range(7)
+            for _ in range(self.no_cols - 1)
         ]
 
         """"Grid edges (nomenclature assumes signs_x,y = 1)"""
@@ -196,15 +203,18 @@ class MovableGrid(QGraphicsItem):
 
         """Grid labels"""
         self.font_dist = 15  # distance (pxs) from labels to grid
-        self.col_labels = [QGraphicsTextItem(parent=self) for _ in range(12)]
+        self.col_labels = [QGraphicsTextItem(parent=self)
+                           for _ in range(self.no_rows)]
         for idx, label in enumerate(self.col_labels):
             label.setPos(0, 0)
             label.setPlainText(str(idx + 1))
             label.setDefaultTextColor(color)
             label.setVisible(False)
 
-        self.row_labels = [QGraphicsTextItem(parent=self) for _ in range(8)]
-        alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        self.row_labels = [QGraphicsTextItem(parent=self)
+                           for _ in range(self.no_cols)]
+        # TODO use string and longer.
+        alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
         for idx, label in enumerate(self.row_labels):
             label.setPos(0, 0)
             label.setPlainText(alphabet[idx])
@@ -315,10 +325,18 @@ class MovableGrid(QGraphicsItem):
         l2 = tl_br_length * np.sin(theta)
 
         """Generate grid points"""
-        xs = np.array([[n * l1 * cos_angle / 8 - m * l2 * sin_angle / 12 + tl_x
-                        for m in range(13)] for n in range(9)])
-        ys = np.array([[n * l1 * sin_angle / 8 + m * l2 * cos_angle / 12 + tl_y
-                        for m in range(13)] for n in range(9)])
+        xs = np.array(
+            [[n * l1 * cos_angle / self.no_cols -
+              m * l2 * sin_angle / self.no_rows + tl_x
+              for m in range(self.no_rows + 1)]
+             for n in range(self.no_cols + 1)]
+        )  # TODO rewrite clearly
+        ys = np.array(
+            [[n * l1 * sin_angle / self.no_cols +
+              m * l2 * cos_angle / self.no_rows + tl_y
+              for m in range(self.no_rows + 1)]
+             for n in range(self.no_cols + 1)]
+        )  # TODO rewrite clearly
         grid_pts = np.dstack((xs, ys))  # grid_pts.shape = (9, 13, 2)
 
         return grid_pts
@@ -385,7 +403,7 @@ class MovableGrid(QGraphicsItem):
         sin_phi = np.sin(self.phi)
 
         """Draw numbers"""
-        v_edge_offset = self.left_edge.line().length() / 24  # 24 = 12 x 2
+        v_edge_offset = self.left_edge.line().length() / (self.no_rows * 2)
         assert v_edge_offset >= 0, v_edge_offset
         for label, coord, in zip(self.col_labels, h_lines_pts):
             x_c = coord[0, 0]
@@ -402,7 +420,7 @@ class MovableGrid(QGraphicsItem):
             label.setVisible(True)
 
         """Draw letters"""
-        h_edge_offset = self.top_edge.line().length() / 16  # 16 = 8 x 2
+        h_edge_offset = self.top_edge.line().length() / (self.no_cols * 2)
         assert h_edge_offset >= 0, h_edge_offset
         for label, coord, in zip(self.row_labels, v_lines_pts):
             x_c = coord[0, 0]
@@ -425,7 +443,7 @@ class MovableGrid(QGraphicsItem):
         self.scene.addItem(self)
 
     def place_grid(self):
-        """Change grid color, disable grid mobility and mouse interaction"""
+        """Change grid initial_color, disable grid mobility and mouse interaction"""
         """The the whole grid"""
         line_list = self.horizontal_lines + self.vertical_lines \
                     + [self.right_edge, self.left_edge] \
