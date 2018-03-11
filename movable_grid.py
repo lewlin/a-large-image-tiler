@@ -1,10 +1,9 @@
-import sys
 import numpy as np
 from math import isclose
-from PyQt5.QtCore import Qt, pyqtSlot, QPointF, QRectF, QLineF
-from PyQt5.QtGui import QMouseEvent, QPen, QPainter
-from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem, \
-    QGraphicsLineItem, QApplication, QGraphicsSceneHoverEvent, QPushButton, \
+from PyQt5.QtCore import Qt, QPointF, QRectF, QLineF
+from PyQt5.QtGui import QPen, QPainter
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsItem, \
+    QGraphicsLineItem, QApplication, QGraphicsSceneHoverEvent, \
     QGraphicsSceneMouseEvent, QGraphicsEllipseItem, QStyleOptionGraphicsItem,\
     QGraphicsRectItem, QGraphicsTextItem
 
@@ -12,7 +11,7 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem, \
 class ResizingSquare(QGraphicsRectItem):
     """Little square next to bottom right corner, used to resize the grid"""
     def __init__(self, *,
-                 parent_grid: QGraphicsItem,  # MOVABLE GRID??
+                 parent_grid: QGriaphicsItem,  # MOVABLE GRID??
                  color: Qt.GlobalColor=Qt.red):
         """Initialize square with QT parent `parent_grid` and color `color`"""
         super().__init__(parent=parent_grid)
@@ -153,6 +152,7 @@ class MovableLine(QGraphicsLineItem):
 class MovableGrid(QGraphicsItem):
     """A 12 x 8 movable/resizable grid. Grid is an abstract QT object: adding
     it to scene automatically adds the children objects (lines, disks, etc.)"""
+
     def __init__(self, *, scene: QGraphicsScene, color: Qt.GlobalColor=Qt.red):
         """Init grid on color `color` and assign it to a `QGraphicsScene scene`.
         Grid is not displayed until `add_grid_to_scene` is called."""
@@ -200,7 +200,7 @@ class MovableGrid(QGraphicsItem):
         for idx, label in enumerate(self.col_labels):
             label.setPos(0, 0)
             label.setPlainText(str(idx + 1))
-            label.setDefaultTextColor(Qt.red)
+            label.setDefaultTextColor(color)
             label.setVisible(False)
 
         self.row_labels = [QGraphicsTextItem(parent=self) for _ in range(8)]
@@ -208,7 +208,7 @@ class MovableGrid(QGraphicsItem):
         for idx, label in enumerate(self.row_labels):
             label.setPos(0, 0)
             label.setPlainText(alphabet[idx])
-            label.setDefaultTextColor(Qt.red)
+            label.setDefaultTextColor(color)
             label.setVisible(False)
 
     def paint(self, painter: QPainter,
@@ -223,7 +223,8 @@ class MovableGrid(QGraphicsItem):
          abstract"""
         return QRectF()
 
-    def angle_mod(self, angle):
+    @staticmethod
+    def _angle_mod(angle):
         """Helper that takes `angle` and returns it in [-pi, pi]. It is used
         when angles are summed or subtracted to prevent overflow."""
         angle += np.pi
@@ -266,22 +267,61 @@ class MovableGrid(QGraphicsItem):
             self.tl_br_coord = []
             self.phi = 0
 
-    def set_line(self, line: QGraphicsLineItem, x1, y1, x2, y2):
+    @staticmethod
+    def _set_line(line: QGraphicsLineItem, x1, y1, x2, y2):
         """Helper to set `line` ends to (x1, y1) and (x2, y2)"""
         """setLine should set to 0,0 first, then call setPos. 
         Otherwise it messes the scene coordinate system."""
         line.setLine(0, 0, x2 - x1, y2 - y1)
         line.setPos(QPointF(x1, y1))
 
-    def set_disk(self, disk: QGraphicsEllipseItem, x0, y0, r):
+    @staticmethod
+    def _set_disk(disk: QGraphicsEllipseItem, x0, y0, r):
         """Helper to center `disk` on (`x0`, `y0`) w radius `r`"""
         disk.setRect(0, 0, 2*r, 2*r)
         disk.setPos(x0 - r, y0 - r)
 
-    def set_square(self, disk: QGraphicsRectItem, x0, y0, r):
+    @staticmethod
+    def _set_square(disk: QGraphicsRectItem, x0, y0, r):
         """Helper to center `square` on `x0`, `y0` w radius `r`"""
         disk.setRect(0, 0, 2*r, 2*r)
         disk.setPos(x0 - r, y0 - r)
+
+    def generate_grid_pts(
+            self, tl_x=None, tl_y=None, br_x=None, br_y=None, angle=None
+    ):
+        """Return grid point coordinates, `grid_pts`, of a grid with top
+        left corner `(tl_x, tl_y)` and bottom right corner `(br_x, br_y)`
+        angled `angle` (`angle` follows same notation of `self.phi`).
+        Default parameters are current grid coordinates.
+        grid_pts has shape (9, 13, 2) and is read as (n-th, m-th, (x, y))
+        Refer to the attached PDF for the notation used in the code.
+        """
+        tl_x = self.tl_disk.x() + self.disk_radius if tl_x is None else tl_x
+        tl_y = self.tl_disk.y() + self.disk_radius if tl_y is None else tl_y
+        br_x = self.br_disk.x() + self.disk_radius if br_x is None else br_x
+        br_y = self.br_disk.y() + self.disk_radius if br_y is None else br_y
+        angle = self.phi if angle is None else angle
+
+        """Compute angles and distances"""
+        tl_br_line = QLineF(tl_x, tl_y, br_x, br_y)
+        tl_br_length = tl_br_line.length()
+        tl_br_angle_deg = 360 - tl_br_line.angle()  # angle() is CCW in deg
+        tl_br_angle_rad = tl_br_angle_deg * 2 * np.pi / 360  # convert to rad
+        theta = tl_br_angle_rad - angle
+        cos_angle = np.cos(angle)
+        sin_angle = np.sin(angle)
+        l1 = tl_br_length * np.cos(theta)
+        l2 = tl_br_length * np.sin(theta)
+
+        """Generate grid points"""
+        xs = np.array([[n * l1 * cos_angle / 8 - m * l2 * sin_angle / 12 + tl_x
+                        for m in range(13)] for n in range(9)])
+        ys = np.array([[n * l1 * sin_angle / 8 + m * l2 * cos_angle / 12 + tl_y
+                        for m in range(13)] for n in range(9)])
+        grid_pts = np.dstack((xs, ys))  # grid_pts.shape = (9, 13, 2)
+
+        return grid_pts
 
     def draw_grid(self, tl_x, tl_y, br_x, br_y):
         """ Draw grid given the coordinates of the top left corner, `tl_x, tl_y`
@@ -298,23 +338,8 @@ class MovableGrid(QGraphicsItem):
         assert isclose(phi_difference, 0,  abs_tol=1e-4, rel_tol=1),\
             str(self.phi) + ', measured: ' + str(self.get_phi())
 
-        """Compute angles and distances"""
-        tl_br_line = QLineF(tl_x, tl_y, br_x, br_y)
-        tl_br_length = tl_br_line.length()
-        tl_br_angle_deg = 360 - tl_br_line.angle()  # angle() is CCW in deg
-        tl_br_angle_rad = tl_br_angle_deg * 2 * np.pi / 360  # convert to rad
-        theta = tl_br_angle_rad - self.phi
-        cos_phi = np.cos(self.phi)
-        sin_phi = np.sin(self.phi)
-        l1 = tl_br_length * np.cos(theta)
-        l2 = tl_br_length * np.sin(theta)
-
-        """Generate grid points"""
-        xs = np.array([[n * l1 * cos_phi / 8 - m * l2 * sin_phi / 12 + tl_x
-                         for m in range(13)] for n in range(9)])
-        ys = np.array([[n * l1 * sin_phi / 8 + m * l2 * cos_phi / 12 + tl_y
-                         for m in range(13)] for n in range(9)])
-        grid_pts = np.dstack((xs, ys))  # grid_pts.shape = (9, 13, 2)
+        """Generate horizontal and vertical lines"""
+        grid_pts = self.generate_grid_pts(tl_x, tl_y, br_x, br_y, self.phi)
         h_lines_pts = \
             np.transpose([grid_pts[0, :], grid_pts[-1, :]], (1, 0, 2))
         v_lines_pts = \
@@ -322,27 +347,27 @@ class MovableGrid(QGraphicsItem):
 
         """Draw grid lines (except edges)"""
         for line, coordinates in zip(self.horizontal_lines, h_lines_pts[1:-1]):
-            self.set_line(line, *coordinates.flatten())
+            self._set_line(line, *coordinates.flatten())
         for line, coordinates in zip(self.vertical_lines, v_lines_pts[1:-1]):
-            self.set_line(line, *coordinates.flatten())
+            self._set_line(line, *coordinates.flatten())
 
         """Draw edges"""
-        self.set_line(self.top_edge, *h_lines_pts[0].flatten())
-        self.set_line(self.bottom_edge, *h_lines_pts[-1].flatten())
-        self.set_line(self.left_edge, *v_lines_pts[0].flatten())
-        self.set_line(self.right_edge, *v_lines_pts[-1].flatten())
+        self._set_line(self.top_edge, *h_lines_pts[0].flatten())
+        self._set_line(self.bottom_edge, *h_lines_pts[-1].flatten())
+        self._set_line(self.left_edge, *v_lines_pts[0].flatten())
+        self._set_line(self.right_edge, *v_lines_pts[-1].flatten())
 
         """Draw disks"""
-        self.set_disk(self.tl_disk, *h_lines_pts[0, 0], self.disk_radius)
-        self.set_disk(self.tr_disk, *h_lines_pts[0, 1], self.disk_radius)
-        self.set_disk(self.bl_disk, *v_lines_pts[0, 1], self.disk_radius)
-        self.set_disk(self.br_disk, *v_lines_pts[-1, 1], self.disk_radius)
+        self._set_disk(self.tl_disk, *h_lines_pts[0, 0], self.disk_radius)
+        self._set_disk(self.tr_disk, *h_lines_pts[0, 1], self.disk_radius)
+        self._set_disk(self.bl_disk, *v_lines_pts[0, 1], self.disk_radius)
+        self._set_disk(self.br_disk, *v_lines_pts[-1, 1], self.disk_radius)
 
         """Draw resizing square"""
         x_square, y_square = v_lines_pts[-1, 1]
         x_square += 2 * self.disk_radius
         y_square -= self.disk_radius
-        self.set_square(self.square, x_square, y_square, self.disk_radius)
+        self._set_square(self.square, x_square, y_square, self.disk_radius)
 
         """sign_x,y account for grid flips. e.g. if sign_y < 0, then 
         `self.top_edge` is the bottom edge. Signs account for how the user 
@@ -354,6 +379,10 @@ class MovableGrid(QGraphicsItem):
         else:
             self.sign_y = - np.sign(self.bl_disk.y() - self.tl_disk.y())
             self.sign_x = - np.sign(self.tr_disk.x() - self.tl_disk.x())
+
+        """Convenience variables"""
+        cos_phi = np.cos(self.phi)
+        sin_phi = np.sin(self.phi)
 
         """Draw numbers"""
         v_edge_offset = self.left_edge.line().length() / 24  # 24 = 12 x 2
@@ -369,7 +398,7 @@ class MovableGrid(QGraphicsItem):
             font_offset_x = label.boundingRect().width() / 2
             label_y = y_d - font_offset_y
             label_x = x_d - font_offset_x
-            label.setPos(label_x, label_y)
+            label.setPos(label_x, label_y)  # don't need helper for these
             label.setVisible(True)
 
         """Draw letters"""
@@ -390,11 +419,14 @@ class MovableGrid(QGraphicsItem):
             label.setVisible(True)
 
     def add_grid_to_scene(self):
-        """Display grid by adding all children items of `MovableGrid` to scene"""
+        """Display grid by adding all children items of `MovableGrid` to
+         scene
+         """
         self.scene.addItem(self)
 
-    def set_immutable(self):
+    def place_grid(self):
         """Change grid color, disable grid mobility and mouse interaction"""
+        """The the whole grid"""
         line_list = self.horizontal_lines + self.vertical_lines \
                     + [self.right_edge, self.left_edge] \
                     + [self.top_edge, self.bottom_edge]
@@ -402,7 +434,7 @@ class MovableGrid(QGraphicsItem):
         disk_list = [self.tl_disk, self.tr_disk, self.br_disk, self.bl_disk]
 
         label_list = self.row_labels + self.col_labels
-
+        """Make grid blue"""
         for line in line_list:
             line.setPen(QPen(Qt.blue, 2))
             line.setFlag(QGraphicsLineItem.ItemSendsGeometryChanges,
@@ -410,11 +442,14 @@ class MovableGrid(QGraphicsItem):
             line.setAcceptHoverEvents(False)
 
         for disk in disk_list:
-            disk.setBrush(Qt.blue)
+            # disk.setBrush(Qt.blue)
             disk.setFlag(QGraphicsEllipseItem.ItemSendsGeometryChanges,
                          enabled=False)
             disk.setAcceptHoverEvents(False)
+            disk.setPos(0, 0)
+            disk.setRect(0, 0, 0, 0)
 
+        """Remove labels and square"""
         for label in label_list:
             label.setPos(0, 0)
             label.setPlainText('')
@@ -501,10 +536,10 @@ class MovableGrid(QGraphicsItem):
         new_offset_y = new_pos.y() - pivot_y
         old_alpha = np.arctan2(old_offset_y, old_offset_x)  # rads, [-pi, pi]
         new_alpha = np.arctan2(new_offset_y, new_offset_x)  # 0 is // to x-axis
-        delta_alpha = self.angle_mod(new_alpha - old_alpha)  # CW
+        delta_alpha = self._angle_mod(new_alpha - old_alpha)  # CW
 
         """Update grid angle"""
-        self.phi = self.angle_mod(self.phi + delta_alpha)
+        self.phi = self._angle_mod(self.phi + delta_alpha)
 
         """Update corners coordinates"""
         tl_x_pv = self.tl_br_coord[0].x() - pivot_x
@@ -570,7 +605,7 @@ class MovableGrid(QGraphicsItem):
             line_y1 = length_to_pv_pt_1 * np.sin(line_angle1_new) + pivot_y
             line_x2 = length_to_pv_pt_2 * np.cos(line_angle2_new) + pivot_x
             line_y2 = length_to_pv_pt_2 * np.sin(line_angle2_new) + pivot_y
-            self.set_line(line, line_x1, line_y1, line_x2, line_y2)
+            self._set_line(line, line_x1, line_y1, line_x2, line_y2)
 
         """Update labels positions"""
         for label in label_list:
@@ -597,101 +632,3 @@ class MovableGrid(QGraphicsItem):
         """Take out coordinate of bottom right corner. This calls virtual function
         mouseMoveEvent from GridWindow"""
         self.tl_br_coord = self.tl_br_coord[:-1]
-
-
-class GridWindow(QGraphicsView):
-    """Interface/Window used to draw adjustable grids"""
-    def __init__(self):
-        super().__init__()
-        """Window properties"""
-        self.setGeometry(0, 0, 500, 500)
-        self.setWindowTitle('Left click to top left grid corner')
-        """W/o the following flag, mouseMove is invoked only w click+move"""
-        self.setMouseTracking(True)
-        """Scene"""
-        self.scene = QGraphicsScene()
-        self.setSceneRect(0, 0, 500, 500)
-        self.setScene(self.scene)
-        """Buttons"""
-        self.like_grid_button = QPushButton('I like this grid!', self)
-        self.like_grid_button.resize(self.like_grid_button.sizeHint())
-        self.like_grid_button.move(370, 20)
-        self.like_grid_button.setEnabled(False)
-        self.like_grid_button.clicked.connect(self.like_grid_button_clicked)
-        """Grids"""
-        self.placed_grids = []
-        self.curr_grid = MovableGrid(scene=self.scene, color=Qt.red)
-
-    def start_work(self):
-        """Show window and allows user to draw grids"""
-        self.show()
-
-    @pyqtSlot()
-    def like_grid_button_clicked(self):
-        """Accept grid and append it. Initialize new grid"""
-        self.curr_grid.set_immutable()
-        self.placed_grids.append(self.curr_grid)
-        # self.current_grid_corners = []
-        self.curr_grid = MovableGrid(scene=self.scene, color=Qt.red)
-
-    def mousePressEvent(self, event: QMouseEvent):
-        """Virtual function that handles mouse buttons click"""
-        if event.button() == Qt.LeftButton and \
-                len(self.curr_grid.tl_br_coord) < 2:
-            """If left click and grid corners are not fully specified, append 
-            mouse coordinates to grid coordinates"""
-            local_mouse_coordinates = self.mapToScene(event.pos())
-            self.curr_grid.tl_br_coord.append(local_mouse_coordinates)
-            if len(self.curr_grid.tl_br_coord) == 1:
-                """If one corner, add grid to scene"""
-                self.setWindowTitle('Left click to bottom right corner or '
-                                    'right click to cancel')
-                self.curr_grid.add_grid_to_scene()
-            elif len(self.curr_grid.tl_br_coord) == 2:
-                """If two corners, draw grid"""
-                tl_x = self.curr_grid.tl_br_coord[0].x()
-                tl_y = self.curr_grid.tl_br_coord[0].y()
-                br_x = self.curr_grid.tl_br_coord[1].x()
-                br_y = self.curr_grid.tl_br_coord[1].y()
-                self.curr_grid.draw_grid(tl_x, tl_y, br_x, br_y)
-                self.setWindowTitle('Displaying grid. Right click to cancel '
-                                    'grid and restart')
-                self.like_grid_button.setEnabled(True)
-            event.accept()  # prevent event propagation to parent widget
-        elif event.button() == Qt.RightButton:
-            """Right click cancels the current grid"""
-            self.curr_grid.clear_grid()
-            self.setWindowTitle('Left click to top left grid corner')
-            self.like_grid_button.setEnabled(False)
-            # self.scene.addPixmap(self.rescaled_pixmap)
-            event.accept()  # prevent event propagation to parent widget
-        else:
-            return super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event: QMouseEvent):
-        """Virtual function called every time the mouse cursor is moved."""
-        if len(self.curr_grid.tl_br_coord) == 1:
-            """If only a grid corner is chosen, dynamically draw grid 
-            following mouse cursor"""
-            mouse_coordinates = self.mapToScene(event.pos())
-            mouse_x = mouse_coordinates.x()
-            mouse_y = mouse_coordinates.y()
-            tl_x = self.curr_grid.tl_br_coord[0].x()
-            tl_y = self.curr_grid.tl_br_coord[0].y()
-            self.curr_grid.draw_grid(tl_x, tl_y, mouse_x, mouse_y)
-            event.accept()
-        else:
-            return super().mouseMoveEvent(event)
-
-    def mouseDoubleClickEvent(self, event: QMouseEvent):
-        return super().mouseDoubleClickEvent(event)
-
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        return super().mouseReleaseEvent(event)
-
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    view = GridWindow()
-    view.show()
-    sys.exit(app.exec_())
