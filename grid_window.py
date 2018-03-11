@@ -149,12 +149,12 @@ class GridWindow(QWidget):
 
         self.col_spinbox = QSpinBox(parent=self,
                                     value=self.initial_no_cols,
-                                    maximum=20,
+                                    maximum=26,
                                     minimum=1
                                     )
         self.row_spinbox = QSpinBox(parent=self,
                                     value=self.initial_no_rows,
-                                    maximum=20,
+                                    maximum=40,
                                     minimum=1
                                     )
         self.configure_gui()
@@ -208,10 +208,16 @@ class GridWindow(QWidget):
     @pyqtSlot(int)
     def set_no_cols(self, no_cols: int):
         self.view.no_cols = no_cols
+        self.view.curr_grid.draw_grid()
 
     @pyqtSlot(int)
     def set_no_rows(self, no_rows: int):
+        """"""
+        """Set deafult row number for future grids"""
         self.view.no_rows = no_rows
+        """Modify existing grid"""
+        # self.view.curr_grid.no_rows = no_rows
+        self.view.curr_grid.draw_grid()
 
 
 if __name__ == "__main__":

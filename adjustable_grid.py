@@ -1,4 +1,5 @@
 import numpy as np
+import string
 from math import isclose
 from PyQt5.QtCore import Qt, QPointF, QRectF, QLineF
 from PyQt5.QtGui import QPen, QPainter
@@ -213,8 +214,7 @@ class AdjustableGrid(QGraphicsItem):
 
         self.row_labels = [QGraphicsTextItem(parent=self)
                            for _ in range(self.no_cols)]
-        # TODO use string and longer.
-        alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+        alphabet = string.ascii_uppercase
         for idx, label in enumerate(self.row_labels):
             label.setPos(0, 0)
             label.setPlainText(alphabet[idx])
@@ -341,7 +341,9 @@ class AdjustableGrid(QGraphicsItem):
 
         return grid_pts
 
-    def draw_grid(self, tl_x, tl_y, br_x, br_y):
+    def draw_grid(
+            self, tl_x=None, tl_y=None, br_x=None, br_y=None, angle=None
+    ):
         """ Draw grid given the coordinates of the top left corner, `tl_x, tl_y`
          and those of the bottom right corner `br_x, br_y`. Coordinates must be
          provided in scene coordinates. The top edge of the grid forms an angle
@@ -356,8 +358,14 @@ class AdjustableGrid(QGraphicsItem):
         assert isclose(phi_difference, 0,  abs_tol=1e-4, rel_tol=1),\
             str(self.phi) + ', measured: ' + str(self.get_phi())
 
+        tl_x = self.tl_disk.x() + self.disk_radius if tl_x is None else tl_x
+        tl_y = self.tl_disk.y() + self.disk_radius if tl_y is None else tl_y
+        br_x = self.br_disk.x() + self.disk_radius if br_x is None else br_x
+        br_y = self.br_disk.y() + self.disk_radius if br_y is None else br_y
+        angle = self.phi if angle is None else angle
+
         """Generate horizontal and vertical lines"""
-        grid_pts = self.generate_grid_pts(tl_x, tl_y, br_x, br_y, self.phi)
+        grid_pts = self.generate_grid_pts(tl_x, tl_y, br_x, br_y, angle)
         h_lines_pts = \
             np.transpose([grid_pts[0, :], grid_pts[-1, :]], (1, 0, 2))
         v_lines_pts = \
@@ -399,8 +407,8 @@ class AdjustableGrid(QGraphicsItem):
             self.sign_x = - np.sign(self.tr_disk.x() - self.tl_disk.x())
 
         """Convenience variables"""
-        cos_phi = np.cos(self.phi)
-        sin_phi = np.sin(self.phi)
+        cos_phi = np.cos(angle)
+        sin_phi = np.sin(angle)
 
         """Draw numbers"""
         v_edge_offset = self.left_edge.line().length() / (self.no_rows * 2)
