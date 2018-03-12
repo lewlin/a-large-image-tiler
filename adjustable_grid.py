@@ -153,72 +153,94 @@ class MovableLine(QGraphicsLineItem):
 class AdjustableGrid(QGraphicsItem):
     """A 12 x 8 movable/resizable grid. Grid is an abstract QT object: adding
     it to scene automatically adds the children objects (lines, disks, etc.)"""
+    """Class attributes"""
+    font_dist = 15  # distance (pxs) from labels to grid edge
+    disk_radius = 4  # corner disk radius in pixels
 
     def __init__(self, *,
                  scene: QGraphicsScene,
                  color: Qt.GlobalColor=Qt.red,
-                 no_rows: int=12,
-                 no_cols: int=8):
-        """Init grid on initial_color `initial_color` and assign it to a `QGraphicsScene scene`.
-        Grid is not displayed until `add_grid_to_scene` is called."""
+                 num_rows: int=12,
+                 num_cols: int=8):
+        """Init grid. ss    et  grid color to `color` and assigns
+        `QGraphicsScene scene`. Then, initialize grid graphical objects by
+        calling `init_grid_graphics(). Grid is not displayed until `add_grid_to_scene`
+        is called."""
         super().__init__()
         self.color = color
         self.scene = scene
-        self.tl_br_coord = []  # top left and bottom right corners coordinates
+
+        """Grid attributes"""
+        self.tl_br_qpointf = []  # top left and bottom right corners coord.
         self.phi = 0  # CW angle between top edge and x-axis (rads) [-pi, pi]
         self.sign_x = 1  # if -1 left/right edge corresponds to right/left
         self.sign_y = 1  # if -1 top/bottom edge corresponds to bottom/top
+        self.num_cols = num_cols  # grid cols
+        self.num_rows = num_rows  # grid rows
 
-        self.no_cols = no_cols  # grid cols
-        self.no_rows = no_rows # grid rows
+        """Grid graphical objects"""
+        self.horizontal_lines = []
+        self.vertical_lines = []
+        self.top_edge = None
+        self.bottom_edge = None
+        self.left_edge = None
+        self.right_edge = None
+        self.square = None
+        self.row_labels = []
+        self.col_labels = []
+        self.tl_disk = None
+        self.tr_disk = None
+        self.bl_disk = None
+        self.br_disk = None
 
-        """Grid (w/o edges) has 11 horizontal lines and 7 vertical lines"""
+        self.init_grid_graphics()
+
+    def init_grid_graphics(self):
+        """Init grid graphical objects (but do not display them)"""
         self.horizontal_lines = [
             MovableLine(allow_vertical_movement=False,
-                        color=color,
+                        color=self.color,
                         parent_grid=self)
-            for _ in range(self.no_rows - 1)
+            for _ in range(self.num_rows - 1)
         ]
         self.vertical_lines = [
             MovableLine(allow_horizontal_movement=False,
-                        color=color,
+                        color=self.color,
                         parent_grid=self)
-            for _ in range(self.no_cols - 1)
+            for _ in range(self.num_cols - 1)
         ]
 
         """"Grid edges (nomenclature assumes signs_x,y = 1)"""
         self.top_edge, self.bottom_edge, self.left_edge, self.right_edge = [
-            MovableLine(move_all=True, parent_grid=self, color=color)
+            MovableLine(move_all=True, parent_grid=self, color=self.color)
             for _ in range(4)
         ]
 
         """Corner disks (used to rotate the grid)"""
-        self.disk_radius = 4  # in pxs
         self.tl_disk, self.tr_disk, self.bl_disk, self.br_disk = [
-            MovableDisk(parent_grid=self, color=color)
+            MovableDisk(parent_grid=self, color=self.color)
             for _ in range(4)
         ]
 
         """Resizing square"""
-        self.square = ResizingSquare(parent_grid=self, color=color)
+        self.square = ResizingSquare(parent_grid=self, color=self.color)
 
         """Grid labels"""
-        self.font_dist = 15  # distance (pxs) from labels to grid
         self.col_labels = [QGraphicsTextItem(parent=self)
-                           for _ in range(self.no_rows)]
+                           for _ in range(self.num_rows)]
         for idx, label in enumerate(self.col_labels):
             label.setPos(0, 0)
             label.setPlainText(str(idx + 1))
-            label.setDefaultTextColor(color)
+            label.setDefaultTextColor(self.color)
             label.setVisible(False)
 
         self.row_labels = [QGraphicsTextItem(parent=self)
-                           for _ in range(self.no_cols)]
+                           for _ in range(self.num_cols)]
         alphabet = string.ascii_uppercase
         for idx, label in enumerate(self.row_labels):
             label.setPos(0, 0)
             label.setPlainText(alphabet[idx])
-            label.setDefaultTextColor(color)
+            label.setDefaultTextColor(self.color)
             label.setVisible(False)
 
     def paint(self, painter: QPainter,
@@ -242,7 +264,7 @@ class AdjustableGrid(QGraphicsItem):
         angle -= np.pi
         return angle
 
-    def get_phi(self):
+    def _get_phi(self):
         """Debug helper. Compute self.phi in an alternative way"""
         edge = self.top_edge.line()
         delta_x = edge.x2() - edge.x1()
@@ -262,10 +284,10 @@ class AdjustableGrid(QGraphicsItem):
 
         try:
             self.scene.removeItem(self)
-        finally:
             for line in line_list:
                 line.setLine(0, 0, 0, 0)
                 line.setPos(0, 0)
+                line.setVisible(False)
             for disk in disk_list:
                 disk.setRect(0, 0, 0, 0)
                 disk.setPos(0, 0)
@@ -274,7 +296,23 @@ class AdjustableGrid(QGraphicsItem):
                 label.setVisible(False)
             self.square.setRect(0, 0, 0, 0)
             self.square.setPos(0, 0)
-            self.tl_br_coord = []
+        finally:
+            self.horizontal_lines = []
+            self.vertical_lines = []
+            self.top_edge = None
+            self.bottom_edge = None
+            self.left_edge = None
+            self.right_edge = None
+            self.square = None
+            self.row_labels = []
+            self.col_labels = []
+            self.tl_br_qpointf = []
+            self.tl_disk = None
+            self.tr_disk = None
+            self.bl_disk = None
+            self.br_disk = None
+            self.sign_x = 1
+            self.sign_y = 1
             self.phi = 0
 
     @staticmethod
@@ -307,10 +345,11 @@ class AdjustableGrid(QGraphicsItem):
         grid_pts has shape (9, 13, 2) and is read as (n-th, m-th, (x, y))
         Refer to the attached PDF for the notation used in the code.
         """
-        tl_x = self.tl_disk.x() + self.disk_radius if tl_x is None else tl_x
-        tl_y = self.tl_disk.y() + self.disk_radius if tl_y is None else tl_y
-        br_x = self.br_disk.x() + self.disk_radius if br_x is None else br_x
-        br_y = self.br_disk.y() + self.disk_radius if br_y is None else br_y
+        r = AdjustableGrid.disk_radius
+        tl_x = self.tl_disk.x() + r if tl_x is None else tl_x
+        tl_y = self.tl_disk.y() + r if tl_y is None else tl_y
+        br_x = self.br_disk.x() + r if br_x is None else br_x
+        br_y = self.br_disk.y() + r if br_y is None else br_y
         angle = self.phi if angle is None else angle
 
         """Compute angles and distances"""
@@ -326,42 +365,50 @@ class AdjustableGrid(QGraphicsItem):
 
         """Generate grid points"""
         xs = np.array(
-            [[n * l1 * cos_angle / self.no_cols -
-              m * l2 * sin_angle / self.no_rows + tl_x
-              for m in range(self.no_rows + 1)]
-             for n in range(self.no_cols + 1)]
+            [[n * l1 * cos_angle / self.num_cols -
+              m * l2 * sin_angle / self.num_rows + tl_x
+              for m in range(self.num_rows + 1)]
+             for n in range(self.num_cols + 1)]
         )  # TODO rewrite clearly
         ys = np.array(
-            [[n * l1 * sin_angle / self.no_cols +
-              m * l2 * cos_angle / self.no_rows + tl_y
-              for m in range(self.no_rows + 1)]
-             for n in range(self.no_cols + 1)]
+            [[n * l1 * sin_angle / self.num_cols +
+              m * l2 * cos_angle / self.num_rows + tl_y
+              for m in range(self.num_rows + 1)]
+             for n in range(self.num_cols + 1)]
         )  # TODO rewrite clearly
         grid_pts = np.dstack((xs, ys))  # grid_pts.shape = (9, 13, 2)
 
         return grid_pts
 
-    def draw_grid(
-            self, tl_x=None, tl_y=None, br_x=None, br_y=None, angle=None
+    def draw_grid(self,
+                  tl_x: float=None,
+                  tl_y: float=None,
+                  br_x: float=None,
+                  br_y: float=None,
+                  angle: float=None
     ):
         """ Draw grid given the coordinates of the top left corner, `tl_x, tl_y`
          and those of the bottom right corner `br_x, br_y`. Coordinates must be
          provided in scene coordinates. The top edge of the grid forms an angle
          `self.phi` w the x-axis.
 
-        This function manipulates line positions but do not make direct changes
-        to `QGraphicsScene`.
+        This function draw graphical objects but do not make direct changes
+        to `QGraphicsScene`. To visualize a grid, use  method
+        `add_grid_to_scene()`. Also, this method does not update the instance
+        properties assigned in the constructor, like signs, phi and tl br
+        coordinates.
 
         Refer to the attached PDF for the notation used in the code."""
         """Debug: phi difference must be zero or AssertionError"""
-        phi_difference = (self.phi - self.get_phi()) % np.pi
+        phi_difference = (self.phi - self._get_phi()) % np.pi
         assert isclose(phi_difference, 0,  abs_tol=1e-4, rel_tol=1),\
-            str(self.phi) + ', measured: ' + str(self.get_phi())
+            str(self.phi) + ', measured: ' + str(self._get_phi())
 
-        tl_x = self.tl_disk.x() + self.disk_radius if tl_x is None else tl_x
-        tl_y = self.tl_disk.y() + self.disk_radius if tl_y is None else tl_y
-        br_x = self.br_disk.x() + self.disk_radius if br_x is None else br_x
-        br_y = self.br_disk.y() + self.disk_radius if br_y is None else br_y
+        r = AdjustableGrid.disk_radius
+        tl_x = self.tl_disk.x() + r if tl_x is None else tl_x
+        tl_y = self.tl_disk.y() + r if tl_y is None else tl_y
+        br_x = self.br_disk.x() + r if br_x is None else br_x
+        br_y = self.br_disk.y() + r if br_y is None else br_y
         angle = self.phi if angle is None else angle
 
         """Generate horizontal and vertical lines"""
@@ -384,16 +431,18 @@ class AdjustableGrid(QGraphicsItem):
         self._set_line(self.right_edge, *v_lines_pts[-1].flatten())
 
         """Draw disks"""
-        self._set_disk(self.tl_disk, *h_lines_pts[0, 0], self.disk_radius)
-        self._set_disk(self.tr_disk, *h_lines_pts[0, 1], self.disk_radius)
-        self._set_disk(self.bl_disk, *v_lines_pts[0, 1], self.disk_radius)
-        self._set_disk(self.br_disk, *v_lines_pts[-1, 1], self.disk_radius)
+        r = AdjustableGrid.disk_radius
+        self._set_disk(self.tl_disk, *h_lines_pts[0, 0], r)
+        self._set_disk(self.tr_disk, *h_lines_pts[0, 1], r)
+        self._set_disk(self.bl_disk, *v_lines_pts[0, 1], r)
+        self._set_disk(self.br_disk, *v_lines_pts[-1, 1], r)
 
         """Draw resizing square"""
+        r = AdjustableGrid.disk_radius
         x_square, y_square = v_lines_pts[-1, 1]
-        x_square += 2 * self.disk_radius
-        y_square -= self.disk_radius
-        self._set_square(self.square, x_square, y_square, self.disk_radius)
+        x_square += 2 * r
+        y_square -= r
+        self._set_square(self.square, x_square, y_square, r)
 
         """sign_x,y account for grid flips. e.g. if sign_y < 0, then 
         `self.top_edge` is the bottom edge. Signs account for how the user 
@@ -411,15 +460,15 @@ class AdjustableGrid(QGraphicsItem):
         sin_phi = np.sin(angle)
 
         """Draw numbers"""
-        v_edge_offset = self.left_edge.line().length() / (self.no_rows * 2)
+        v_edge_offset = self.left_edge.line().length() / (self.num_rows * 2)
         assert v_edge_offset >= 0, v_edge_offset
         for label, coord, in zip(self.col_labels, h_lines_pts):
             x_c = coord[0, 0]
             y_c = coord[0, 1]
             x_b = x_c - self.sign_y * v_edge_offset * sin_phi
             y_b = y_c + self.sign_y * v_edge_offset * cos_phi
-            x_d = x_b - self.sign_x * self.font_dist * cos_phi
-            y_d = y_b - self.sign_x * self.font_dist * sin_phi
+            x_d = x_b - self.sign_x * AdjustableGrid.font_dist * cos_phi
+            y_d = y_b - self.sign_x * AdjustableGrid.font_dist * sin_phi
             font_offset_y = label.boundingRect().height() / 2
             font_offset_x = label.boundingRect().width() / 2
             label_y = y_d - font_offset_y
@@ -428,15 +477,15 @@ class AdjustableGrid(QGraphicsItem):
             label.setVisible(True)
 
         """Draw letters"""
-        h_edge_offset = self.top_edge.line().length() / (self.no_cols * 2)
+        h_edge_offset = self.top_edge.line().length() / (self.num_cols * 2)
         assert h_edge_offset >= 0, h_edge_offset
         for label, coord, in zip(self.row_labels, v_lines_pts):
             x_c = coord[0, 0]
             y_c = coord[0, 1]
             x_f = x_c + self.sign_x * h_edge_offset * cos_phi
             y_f = y_c + self.sign_x * h_edge_offset * sin_phi
-            x_e = x_f + self.sign_y * self.font_dist * sin_phi
-            y_e = y_f - self.sign_y * self.font_dist * cos_phi
+            x_e = x_f + self.sign_y * AdjustableGrid.font_dist * sin_phi
+            y_e = y_f - self.sign_y * AdjustableGrid.font_dist * cos_phi
             font_offset_y = label.boundingRect().height() / 2
             font_offset_x = label.boundingRect().width() / 2
             label_y = y_e - font_offset_y
@@ -516,8 +565,8 @@ class AdjustableGrid(QGraphicsItem):
         self.square.setPos(curr_pos.x() + offset_x, curr_pos.y() + offset_y)
 
         """Update corners position"""
-        self.tl_br_coord = [QPointF(pt.x() + offset_x, pt.y() + offset_y)
-                            for pt in self.tl_br_coord]
+        self.tl_br_qpointf = [QPointF(pt.x() + offset_x, pt.y() + offset_y)
+                              for pt in self.tl_br_qpointf]
 
     def rotate_grid(self, *,
                     old_pos: QPointF,
@@ -549,8 +598,9 @@ class AdjustableGrid(QGraphicsItem):
 
         """Pivoting pt is the center of the pivoting disk. 
         scenePos() yields top left of bounding rect"""
+        r = AdjustableGrid.disk_radius
         pivoting_pt = \
-            pivot_disk.scenePos() + QPointF(self.disk_radius, self.disk_radius)
+            pivot_disk.scenePos() + QPointF(r, r)
         pivot_x = pivoting_pt.x()
         pivot_y = pivoting_pt.y()
 
@@ -568,10 +618,10 @@ class AdjustableGrid(QGraphicsItem):
         self.phi = self._angle_mod(self.phi + delta_alpha)
 
         """Update corners coordinates"""
-        tl_x_pv = self.tl_br_coord[0].x() - pivot_x
-        tl_y_pv = self.tl_br_coord[0].y() - pivot_y
-        br_x_pv = self.tl_br_coord[1].x() - pivot_x
-        br_y_pv = self.tl_br_coord[1].y() - pivot_y
+        tl_x_pv = self.tl_br_qpointf[0].x() - pivot_x
+        tl_y_pv = self.tl_br_qpointf[0].y() - pivot_y
+        br_x_pv = self.tl_br_qpointf[1].x() - pivot_x
+        br_y_pv = self.tl_br_qpointf[1].y() - pivot_y
         cos_delta_alpha = np.cos(delta_alpha)
         sin_delta_alpha = np.sin(delta_alpha)
         rotation_matrix = \
@@ -581,36 +631,36 @@ class AdjustableGrid(QGraphicsItem):
             np.dot(rotation_matrix, [tl_x_pv, tl_y_pv]) + [pivot_x, pivot_y]
         br_x_new, br_y_new = \
             np.dot(rotation_matrix, [br_x_pv, br_y_pv]) + [pivot_x, pivot_y]
-        self.tl_br_coord = [QPointF(tl_x_new, tl_y_new),
-                            QPointF(br_x_new, br_y_new)]
+        self.tl_br_qpointf = [QPointF(tl_x_new, tl_y_new),
+                              QPointF(br_x_new, br_y_new)]
 
         """Update disks positions"""
+        r = AdjustableGrid.disk_radius
         for disk in disk_list:
-            curr_disk_pos = disk.scenePos() \
-                               + QPointF(self.disk_radius, self.disk_radius)
+            curr_disk_pos = disk.scenePos() + QPointF(r, r)
             delta_x = curr_disk_pos.x() - pivoting_pt.x()
             delta_y = curr_disk_pos.y() - pivoting_pt.y()
             disk_current_angle = np.arctan2(delta_y, delta_x)
             disk_new_angle = disk_current_angle + delta_alpha
             length_to_pv_pt = QLineF(pivoting_pt, curr_disk_pos).length()
             disk_new_tl_x = length_to_pv_pt * np.cos(disk_new_angle) \
-                            + pivoting_pt.x() - self.disk_radius
+                            + pivoting_pt.x() - r
             disk_new_tl_y = length_to_pv_pt * np.sin(disk_new_angle) \
-                            + pivoting_pt.y() - self.disk_radius
+                            + pivoting_pt.y() - r
             disk.setPos(QPointF(disk_new_tl_x, disk_new_tl_y))
 
         """Update resizing square position"""
-        curr_square_pos = self.square.scenePos() \
-                             + QPointF(self.disk_radius, self.disk_radius)
+        r = AdjustableGrid.disk_radius
+        curr_square_pos = self.square.scenePos() + QPointF(r, r)
         delta_x = curr_square_pos.x() - pivot_x
         delta_y = curr_square_pos.y() - pivot_y
         square_current_angle = np.arctan2(delta_y, delta_x)
         square_new_angle = square_current_angle + delta_alpha
         length_to_pv_pt = QLineF(pivoting_pt, curr_square_pos).length()
         square_new_tl_x = length_to_pv_pt * np.cos(square_new_angle) \
-                          + pivot_x - self.disk_radius
+                          + pivot_x - r
         square_new_tl_y = length_to_pv_pt * np.sin(square_new_angle) \
-                          + pivot_y - self.disk_radius
+                          + pivot_y - r
         self.square.setPos(QPointF(square_new_tl_x, square_new_tl_y))
 
         """Update lines positions"""
@@ -657,4 +707,42 @@ class AdjustableGrid(QGraphicsItem):
     def resize_grid(self):
         """Take out coordinate of bottom right corner. This calls virtual function
         mouseMoveEvent from GridWindow"""
-        self.tl_br_coord = self.tl_br_coord[:-1]
+        self.tl_br_qpointf = self.tl_br_qpointf[:-1]
+
+    # def set_cols(self, new_cols):
+    #     """Change number of color on the current grid. The """
+    #     self.num_cols = new_cols
+    #
+    #     self.vertical_lines = [
+    #         MovableLine(allow_horizontal_movement=False,
+    #                     color=self.color,
+    #                     parent_grid=self)
+    #         for _ in range(new_cols - 1)]
+    #
+    #     self.row_labels = [QGraphicsTextItem(parent=self)
+    #                        for _ in range(new_cols)]
+    #
+    #     alphabet = string.ascii_uppercase
+    #     for idx, label in enumerate(self.row_labels):
+    #         label.setPos(0, 0)
+    #         label.setPlainText(alphabet[idx])
+    #         label.setDefaultTextColor(self.color)
+    #         label.setVisible(False)
+    #
+    # def set_rows(self, new_rows):
+    #     self.num_rows = new_rows
+    #
+    #     self.horizontal_lines = [
+    #         MovableLine(allow_vertical_movement=False,
+    #                     color=self.color,
+    #                     parent_grid=self)
+    #         for _ in range(new_rows - 1)
+    #     ]
+    #
+    #     self.col_labels = [QGraphicsTextItem(parent=self)
+    #                        for _ in range(new_rows)]
+    #     for idx, label in enumerate(self.col_labels):
+    #         label.setPos(0, 0)
+    #         label.setPlainText(str(idx + 1))
+    #         label.setDefaultTextColor(self.color)
+    #         label.setVisible(False)
