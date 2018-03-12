@@ -54,6 +54,7 @@ class GridView(QGraphicsView):
         #
 
     def set_background(self, img_file: str):
+        """UNUSED"""
         try:
             background_pixmap_unscaled = QPixmap(img_file, format='JPG')
             self.background_pixmap = \

@@ -12,9 +12,10 @@ from PyQt5.QtWidgets import QGraphicsScene, QGraphicsItem, \
 class ResizingSquare(QGraphicsRectItem):
     """Little square next to bottom right corner, used to resize the grid"""
     def __init__(self, *,
-                 parent_grid: QGraphicsItem,  # MOVABLE GRID??
+                 parent_grid: QGraphicsItem,
                  color: Qt.GlobalColor=Qt.red):
-        """Initialize square with QT parent `parent_grid` and initial_color `initial_color`"""
+        """Initialize square with QT parent `parent_grid` and initial_color
+         `initial_color`"""
         super().__init__(parent=parent_grid)
         self.setBrush(color)
         self.setAcceptHoverEvents(True)  # mouse cursor entering/exiting item
@@ -45,7 +46,8 @@ class MovableDisk(QGraphicsEllipseItem):
     def __init__(self, *,
                  parent_grid: QGraphicsItem,
                  color: Qt.GlobalColor=Qt.red):
-        """Initialize disk as parent of parent_grid with initial_color initial_color"""
+        """Initialize disk as child of `parent_grid` with initial_color
+        `initial_color`"""
         super().__init__(parent=parent_grid)
         self.setBrush(color)
         self.setAcceptHoverEvents(True)  # mouse cursor entering/exiting item
@@ -71,10 +73,13 @@ class MovableDisk(QGraphicsEllipseItem):
                                       new_pos=new_cursor_pos,
                                       caller=self)
 
+    """This method needs to be reimplemented"""
     def mousePressEvent(self, event: 'QGraphicsSceneMouseEvent'): pass
 
+    """This method needs to be reimplemented"""
     def mouseDoubleClickEvent(self, event: 'QGraphicsSceneMouseEvent'): pass
 
+    """This method needs to be reimplemented"""
     def mouseReleaseEvent(self, event: 'QGraphicsSceneMouseEvent'): pass
 
 
@@ -87,7 +92,8 @@ class MovableLine(QGraphicsLineItem):
                  allow_vertical_movement: bool=False,
                  move_all: bool=False,
                  color: Qt.GlobalColor=Qt.red):
-        """Initialize line w initial_color `initial_color` and QT parent `parent_grid`.
+        """Initialize line w initial_color `initial_color` and QT parent
+        `parent_grid`.
         The line can be dragged by the mouse according if flags
         `allow_horizontal/vertical_movement` are `True`.
         If `move_all=True`, moving the line moves the whole grid."""
@@ -143,10 +149,13 @@ class MovableLine(QGraphicsLineItem):
             """Line is an edge. Update whole grid position."""
             self.parentItem().move_grid(offset_x, offset_y)
 
+    """This method needs to be reimplemented"""
     def mousePressEvent(self, event: 'QGraphicsSceneMouseEvent'): pass
 
+    """This method needs to be reimplemented"""
     def mouseDoubleClickEvent(self, event: 'QGraphicsSceneMouseEvent'): pass
 
+    """This method needs to be reimplemented"""
     def mouseReleaseEvent(self, event: 'QGraphicsSceneMouseEvent'): pass
 
 
@@ -164,8 +173,8 @@ class AdjustableGrid(QGraphicsItem):
                  num_cols: int=8):
         """Init grid. ss    et  grid color to `color` and assigns
         `QGraphicsScene scene`. Then, initialize grid graphical objects by
-        calling `init_grid_graphics(). Grid is not displayed until `add_grid_to_scene`
-        is called."""
+        calling `init_grid_graphics(). Grid is not displayed until
+        `add_grid_to_scene` is called."""
         super().__init__()
         self.color = color
         self.scene = scene
@@ -196,7 +205,8 @@ class AdjustableGrid(QGraphicsItem):
         self.init_grid_graphics()
 
     def init_grid_graphics(self):
-        """Init grid graphical objects (but do not display them)"""
+        """Initialize grid graphical objects w/o displaying them."""
+        """Init grid line w/o edges"""
         self.horizontal_lines = [
             MovableLine(allow_vertical_movement=False,
                         color=self.color,
@@ -225,7 +235,7 @@ class AdjustableGrid(QGraphicsItem):
         """Resizing square"""
         self.square = ResizingSquare(parent_grid=self, color=self.color)
 
-        """Grid labels"""
+        """Column labels (numerals)"""
         self.col_labels = [QGraphicsTextItem(parent=self)
                            for _ in range(self.num_rows)]
         for idx, label in enumerate(self.col_labels):
@@ -234,6 +244,7 @@ class AdjustableGrid(QGraphicsItem):
             label.setDefaultTextColor(self.color)
             label.setVisible(False)
 
+        """Row labels (letters)"""
         self.row_labels = [QGraphicsTextItem(parent=self)
                            for _ in range(self.num_cols)]
         alphabet = string.ascii_uppercase
@@ -257,15 +268,15 @@ class AdjustableGrid(QGraphicsItem):
 
     @staticmethod
     def _angle_mod(angle):
-        """Helper that takes `angle` and returns it in [-pi, pi]. It is used
-        when angles are summed or subtracted to prevent overflow."""
+        """Helper that casts `angle` in [-pi, pi]. It is used on outcomes of
+        sums or subtractions to prevent overflows."""
         angle += np.pi
         angle = angle % (2 * np.pi)
         angle -= np.pi
         return angle
 
     def _get_phi(self):
-        """Debug helper. Compute self.phi in an alternative way"""
+        """Debug helper. Return an angle that should be equal to self.phi."""
         edge = self.top_edge.line()
         delta_x = edge.x2() - edge.x1()
         delta_y = edge.y2() - edge.y1()
@@ -273,7 +284,7 @@ class AdjustableGrid(QGraphicsItem):
         return angle
 
     def clear_grid(self):
-        """Remove grid from scene and reset items"""
+        """Remove grid from scene and reset items."""
         line_list = self.horizontal_lines + self.vertical_lines + \
                     [self.right_edge, self.left_edge] + \
                     [self.top_edge, self.bottom_edge]
@@ -297,6 +308,7 @@ class AdjustableGrid(QGraphicsItem):
             self.square.setRect(0, 0, 0, 0)
             self.square.setPos(0, 0)
         finally:
+            """Reset graphical objects"""
             self.horizontal_lines = []
             self.vertical_lines = []
             self.top_edge = None
@@ -306,11 +318,12 @@ class AdjustableGrid(QGraphicsItem):
             self.square = None
             self.row_labels = []
             self.col_labels = []
-            self.tl_br_qpointf = []
             self.tl_disk = None
             self.tr_disk = None
             self.bl_disk = None
             self.br_disk = None
+            """Reset grid location"""
+            self.tl_br_qpointf = []
             self.sign_x = 1
             self.sign_y = 1
             self.phi = 0
@@ -338,13 +351,15 @@ class AdjustableGrid(QGraphicsItem):
     def generate_grid_pts(
             self, tl_x=None, tl_y=None, br_x=None, br_y=None, angle=None
     ):
-        """Return grid point coordinates, `grid_pts`, of a grid with top
-        left corner `(tl_x, tl_y)` and bottom right corner `(br_x, br_y)`
+        """Return grid point coordinates of a grid with top
+        left corner `(tl_x, tl_y)` and bottom right corner `(br_x, br_y)`,
         angled `angle` (`angle` follows same notation of `self.phi`).
         Default parameters are current grid coordinates.
-        grid_pts has shape (9, 13, 2) and is read as (n-th, m-th, (x, y))
+        grid_pts has shape (rows+1, cols+1, 2) and is read as
+        (n-th, m-th, (x, y)).
         Refer to the attached PDF for the notation used in the code.
         """
+        """If no arguments are given use current grid position"""
         r = AdjustableGrid.disk_radius
         tl_x = self.tl_disk.x() + r if tl_x is None else tl_x
         tl_y = self.tl_disk.y() + r if tl_y is None else tl_y
@@ -352,7 +367,7 @@ class AdjustableGrid(QGraphicsItem):
         br_y = self.br_disk.y() + r if br_y is None else br_y
         angle = self.phi if angle is None else angle
 
-        """Compute angles and distances"""
+        """Compute angles and edge lengths"""
         tl_br_line = QLineF(tl_x, tl_y, br_x, br_y)
         tl_br_length = tl_br_line.length()
         tl_br_angle_deg = 360 - tl_br_line.angle()  # angle() is CCW in deg
@@ -376,8 +391,7 @@ class AdjustableGrid(QGraphicsItem):
               for m in range(self.num_rows + 1)]
              for n in range(self.num_cols + 1)]
         )  # TODO rewrite clearly
-        grid_pts = np.dstack((xs, ys))  # grid_pts.shape = (9, 13, 2)
-
+        grid_pts = np.dstack((xs, ys))
         return grid_pts
 
     def draw_grid(self,
@@ -404,6 +418,7 @@ class AdjustableGrid(QGraphicsItem):
         assert isclose(phi_difference, 0,  abs_tol=1e-4, rel_tol=1),\
             str(self.phi) + ', measured: ' + str(self._get_phi())
 
+        """If arguments are not given, use current grid coordinates"""
         r = AdjustableGrid.disk_radius
         tl_x = self.tl_disk.x() + r if tl_x is None else tl_x
         tl_y = self.tl_disk.y() + r if tl_y is None else tl_y
@@ -494,14 +509,13 @@ class AdjustableGrid(QGraphicsItem):
             label.setVisible(True)
 
     def add_grid_to_scene(self):
-        """Display grid by adding all children items of `MovableGrid` to
-         scene
+        """Display grid by adding all children of `AdjustableGrid` to scene
          """
         self.scene.addItem(self)
 
     def place_grid(self):
-        """Change grid initial_color, disable grid mobility and mouse interaction"""
-        """The the whole grid"""
+        """Change grid color, disable grid mobility and mouse interaction"""
+        """The whole grid"""
         line_list = self.horizontal_lines + self.vertical_lines \
                     + [self.right_edge, self.left_edge] \
                     + [self.top_edge, self.bottom_edge]
@@ -511,7 +525,7 @@ class AdjustableGrid(QGraphicsItem):
         label_list = self.row_labels + self.col_labels
         """Make grid blue"""
         for line in line_list:
-            line.setPen(QPen(Qt.blue, 2))
+            line.setPen(QPen(Qt.blue, .5))
             line.setFlag(QGraphicsLineItem.ItemSendsGeometryChanges,
                          enabled=False)
             line.setAcceptHoverEvents(False)
@@ -709,40 +723,3 @@ class AdjustableGrid(QGraphicsItem):
         mouseMoveEvent from GridWindow"""
         self.tl_br_qpointf = self.tl_br_qpointf[:-1]
 
-    # def set_cols(self, new_cols):
-    #     """Change number of color on the current grid. The """
-    #     self.num_cols = new_cols
-    #
-    #     self.vertical_lines = [
-    #         MovableLine(allow_horizontal_movement=False,
-    #                     color=self.color,
-    #                     parent_grid=self)
-    #         for _ in range(new_cols - 1)]
-    #
-    #     self.row_labels = [QGraphicsTextItem(parent=self)
-    #                        for _ in range(new_cols)]
-    #
-    #     alphabet = string.ascii_uppercase
-    #     for idx, label in enumerate(self.row_labels):
-    #         label.setPos(0, 0)
-    #         label.setPlainText(alphabet[idx])
-    #         label.setDefaultTextColor(self.color)
-    #         label.setVisible(False)
-    #
-    # def set_rows(self, new_rows):
-    #     self.num_rows = new_rows
-    #
-    #     self.horizontal_lines = [
-    #         MovableLine(allow_vertical_movement=False,
-    #                     color=self.color,
-    #                     parent_grid=self)
-    #         for _ in range(new_rows - 1)
-    #     ]
-    #
-    #     self.col_labels = [QGraphicsTextItem(parent=self)
-    #                        for _ in range(new_rows)]
-    #     for idx, label in enumerate(self.col_labels):
-    #         label.setPos(0, 0)
-    #         label.setPlainText(str(idx + 1))
-    #         label.setDefaultTextColor(self.color)
-    #         label.setVisible(False)
