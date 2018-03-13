@@ -1,9 +1,11 @@
 import sys
 import numpy as np
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QPointF
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QMouseEvent, QPixmap
 from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QPushButton, \
-    QWidget, QSpinBox, QGridLayout, QLabel, QGroupBox, QApplication
+    QWidget, QSpinBox, QGridLayout, QLabel, QGroupBox, QApplication, \
+    QRadioButton, QVBoxLayout
+
 
 from adjustable_grid import AdjustableGrid
 
@@ -12,6 +14,7 @@ class GridView(QGraphicsView):
     """Provide a `QGraphicsView` to which add `AdjustableGrid`s. `GridView` is
     a child of a `parent` widget. Contain default grid properties such as
     `color`, `num_cols` and `num_rows`."""
+
     def __init__(self, *,
                  parent: QWidget,
                  color: Qt.GlobalColor=Qt.yellow,
@@ -41,16 +44,16 @@ class GridView(QGraphicsView):
         """Background image"""
         self.background_pixmap = QPixmap()
 
-        # self.like_grid_button.clicked.connect(self.like_grid_button_clicked)
+        # self.gc_button.clicked.connect(self.like_grid_button_clicked)
 
-        # self.grid_control_layout.addWidget(self.like_grid_button, 0, 0)
-        # self.grid_control_layout.addLayout()
-        # self.grid_control_layout.setColumnMinimumWidth(1, 100)
-        # self.grid_control_layout.setRowMinimumHeight(1, 100)
-        # self.grid_control_layout.addWidget(self.col_label, 0, 0)
-        # self.grid_control_layout.addWidget(self.row_label, 1, 0)
-        # self.grid_control_layout.addWidget(self.col_spinbox, 1, 0)
-        # self.grid_control_layout.addWidget(self.row_spinbox, 1, 1)
+        # self.gc_layout.addWidget(self.gc_button, 0, 0)
+        # self.gc_layout.addLayout()
+        # self.gc_layout.setColumnMinimumWidth(1, 100)
+        # self.gc_layout.setRowMinimumHeight(1, 100)
+        # self.gc_layout.addWidget(self.gc_col_label, 0, 0)
+        # self.gc_layout.addWidget(self.gc_row_label, 1, 0)
+        # self.gc_layout.addWidget(self.gc_col_spinbox, 1, 0)
+        # self.gc_layout.addWidget(self.gc_row_spinbox, 1, 1)
         #
 
     def set_background(self, img_file: str):
@@ -66,52 +69,61 @@ class GridView(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent):
         """Virtual function that handles mouse buttons click"""
-        if event.button() == Qt.LeftButton and \
-                len(self.curr_grid.tl_br_qpointf) < 2:
-            """If left click and grid corners are not fully specified, append 
-            mouse coordinates to grid coordinates"""
-            local_mouse_coordinates = self.mapToScene(event.pos())
-            self.curr_grid.tl_br_qpointf.append(local_mouse_coordinates)
-            if len(self.curr_grid.tl_br_qpointf) == 1:
-                """If one corner, add grid to scene"""
-                self.setWindowTitle('Left click to bottom right corner or '
-                                    'right click to cancel')
-                self.curr_grid.add_grid_to_scene()
-            elif len(self.curr_grid.tl_br_qpointf) == 2:
-                """If two corners, draw grid"""
-                tl_x = self.curr_grid.tl_br_qpointf[0].x()
-                tl_y = self.curr_grid.tl_br_qpointf[0].y()
-                br_x = self.curr_grid.tl_br_qpointf[1].x()
-                br_y = self.curr_grid.tl_br_qpointf[1].y()
-                self.curr_grid.draw_grid(tl_x, tl_y, br_x, br_y)
-                self.setWindowTitle('Displaying grid. Right click to cancel '
-                                    'grid and restart')
-                # self.like_grid_button.setEnabled(True)
-            event.accept()  # prevent event propagation to parent widget
-        elif event.button() == Qt.RightButton:
-            """Right click reset the current grid"""
-            self.curr_grid.clear_grid()
-            self.curr_grid.init_grid_graphics()
-            self.setWindowTitle('Left click to top left grid corner')
-            # self.like_grid_button.setEnabled(False)
-            # self.scene.addPixmap(self.rescaled_pixmap)
-            event.accept()  # prevent event propagation to parent widget
+        if self.parentWidget().mode == GridWindow.modes['grid']:
+            if event.button() == Qt.LeftButton and \
+                    len(self.curr_grid.tl_br_qpointf) < 2:
+                """If left click and grid corners are not fully specified, append 
+                mouse coordinates to grid coordinates"""
+                local_mouse_coordinates = self.mapToScene(event.pos())
+                self.curr_grid.tl_br_qpointf.append(local_mouse_coordinates)
+                if len(self.curr_grid.tl_br_qpointf) == 1:
+                    """If one corner, add grid to scene"""
+                    self.setWindowTitle('Left click to bottom right corner or '
+                                        'right click to cancel')
+                    self.curr_grid.add_grid_to_scene()
+                elif len(self.curr_grid.tl_br_qpointf) == 2:
+                    """If two corners, draw grid"""
+                    tl_x = self.curr_grid.tl_br_qpointf[0].x()
+                    tl_y = self.curr_grid.tl_br_qpointf[0].y()
+                    br_x = self.curr_grid.tl_br_qpointf[1].x()
+                    br_y = self.curr_grid.tl_br_qpointf[1].y()
+                    self.curr_grid.draw_grid(tl_x, tl_y, br_x, br_y)
+                    self.setWindowTitle('Displaying grid. Right click to '
+                                        'cancel grid and restart')
+                    # self.gc_button.setEnabled(True)
+                event.accept()  # prevent event propagation to parent widget
+            elif event.button() == Qt.RightButton:
+                """Right click reset the current grid"""
+                self.curr_grid.clear_grid()
+                self.curr_grid.init_grid_graphics()
+                self.setWindowTitle('Left click to top left grid corner')
+                # self.gc_button.setEnabled(False)
+                # self.scene.addPixmap(self.rescaled_pixmap)
+                event.accept()  # prevent event propagation to parent widget
+            else:
+                return super().mousePressEvent(event)
         else:
+            """If not grid mode"""
             return super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
         """Virtual function called every time the mouse cursor is moved."""
-        if len(self.curr_grid.tl_br_qpointf) == 1:
-            """If only a grid corner is chosen, dynamically draw grid 
-            following mouse cursor"""
-            mouse_coordinates = self.mapToScene(event.pos())
-            mouse_x = mouse_coordinates.x()
-            mouse_y = mouse_coordinates.y()
-            tl_x = self.curr_grid.tl_br_qpointf[0].x()
-            tl_y = self.curr_grid.tl_br_qpointf[0].y()
-            self.curr_grid.draw_grid(tl_x, tl_y, mouse_x, mouse_y)
-            event.accept()
+        if self.parentWidget().mode == GridWindow.modes['grid']:
+            """If GridWinow is in grid mode:"""
+            if len(self.curr_grid.tl_br_qpointf) == 1:
+                """If only a grid corner is chosen, dynamically draw grid 
+                following mouse cursor"""
+                mouse_coordinates = self.mapToScene(event.pos())
+                mouse_x = mouse_coordinates.x()
+                mouse_y = mouse_coordinates.y()
+                tl_x = self.curr_grid.tl_br_qpointf[0].x()
+                tl_y = self.curr_grid.tl_br_qpointf[0].y()
+                self.curr_grid.draw_grid(tl_x, tl_y, mouse_x, mouse_y)
+                event.accept()
+            else:
+                return super().mouseMoveEvent(event)
         else:
+            """If GridWindow is not in grid mode"""
             return super().mouseMoveEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
@@ -120,11 +132,23 @@ class GridView(QGraphicsView):
     def mouseReleaseEvent(self, event: QMouseEvent):
         return super().mouseReleaseEvent(event)
 
+    @pyqtSlot()
+    def change_mode(self):
+        print(self.parentWidget().mode)
+        if GridWindow.modes['grid'] == self.parentWidget().mode:
+            self.curr_grid.setEnabled(True)
+        elif GridWindow.modes['training'] == self.parentWidget().mode:
+            self.curr_grid.setEnabled(False)
+
 
 class GridWindow(QWidget):
     """Interface/Window used to draw adjustable grids"""
+    """Class attributes"""
+    modes = {'grid': 0, 'training': 1}
     """Emitted when the user places a grid"""
     sig_found_grid = pyqtSignal(np.ndarray)
+    """Emitted when mode is changed"""
+    sig_change_mode = pyqtSignal(int)
 
     def __init__(self):
         """Window properties"""
@@ -135,51 +159,73 @@ class GridWindow(QWidget):
         self.initial_color = Qt.darkGreen
         self.initial_no_cols = 8
         self.initial_no_rows = 12
+        self.mode = GridWindow.modes['grid']
 
-        self.like_grid_button = QPushButton('I like this grid!', parent=self)
-
+        """Initialize GridView"""
         self.view = GridView(
             parent=self,
             color=self.initial_color,
             num_rows=self.initial_no_rows,
             num_cols=self.initial_no_cols
         )
+        self.sig_change_mode.connect(self.view.change_mode)
+
+        """Mode select GUI"""
+        self.mode_box = QGroupBox(parent=self, title='Mode selection')
+        self.mode_layout = QVBoxLayout()
+        self.mode_grid_button = QRadioButton(parent=self, text='Grid mode')
+        self.mode_training_button = QRadioButton(parent=self,
+                                                 text='Training mode')
 
         """Grid control GUI"""
-        self.grid_control = QGroupBox(parent=self, title='Grid control')
-        self.grid_control_layout = QGridLayout()
-        self.col_label = QLabel('Columns:', parent=self)
-        self.row_label = QLabel('Rows: ', parent=self)
+        self.gc_box = QGroupBox(parent=self, title='Grid control')
+        self.gc_layout = QGridLayout()
+        self.gc_col_label = QLabel('Columns:', parent=self)
+        self.gc_row_label = QLabel('Rows: ', parent=self)
+        self.gc_col_spinbox = QSpinBox(parent=self,
+                                       value=self.initial_no_cols,
+                                       maximum=26,
+                                       minimum=1
+                                       )
+        self.gc_row_spinbox = QSpinBox(parent=self,
+                                       value=self.initial_no_rows,
+                                       maximum=40,
+                                       minimum=1
+                                       )
+        self.gc_button = QPushButton('I like this grid!', parent=self)
 
-        self.col_spinbox = QSpinBox(parent=self,
-                                    value=self.initial_no_cols,
-                                    maximum=26,
-                                    minimum=1
-                                    )
-        self.row_spinbox = QSpinBox(parent=self,
-                                    value=self.initial_no_rows,
-                                    maximum=40,
-                                    minimum=1
-                                    )
         self.configure_gui()
         self.start_work()
 
     def configure_gui(self):
         """Configure graphical objects"""
-        self.like_grid_button.resize(self.like_grid_button.sizeHint())
-        self.like_grid_button.move(510, 120)
-        self.like_grid_button.setEnabled(True)
-        self.like_grid_button.clicked.connect(self.like_grid_button_clicked)
+        """Config. mode selection"""
+        self.mode_layout.addWidget(self.mode_grid_button)
+        self.mode_layout.addWidget(self.mode_training_button)
+        self.mode_box.setLayout(self.mode_layout)
+        self.mode_box.move(510, 10)
+        if self.mode == GridWindow.modes['grid']:
+            self.mode_training_button.setChecked(False)
+            self.mode_grid_button.setChecked(True)
+        elif self.mode == GridWindow.modes['training']:
+            self.mode_training_button.setChecked(True)
+            self.mode_grid_button.setChecked(False)
+        self.mode_training_button.clicked.connect(self.change_mode)
+        self.mode_grid_button.clicked.connect(self.change_mode)
 
-        self.grid_control_layout.addWidget(self.row_label, 0, 0)
-        self.grid_control_layout.addWidget(self.col_label, 0, 1)
-        self.grid_control_layout.addWidget(self.col_spinbox, 1, 1)
-        self.grid_control_layout.addWidget(self.row_spinbox, 1, 0)
-        self.grid_control.setLayout(self.grid_control_layout)
-        self.grid_control.move(510, 10)
-
-        self.row_spinbox.valueChanged.connect(self.set_num_rows)
-        self.col_spinbox.valueChanged.connect(self.set_num_cols)
+        """Configure grid control"""
+        self.gc_layout.addWidget(self.gc_row_label, 0, 0)
+        self.gc_layout.addWidget(self.gc_col_label, 0, 1)
+        self.gc_layout.addWidget(self.gc_col_spinbox, 1, 1)
+        self.gc_layout.addWidget(self.gc_row_spinbox, 1, 0)
+        self.gc_layout.addWidget(self.gc_button, 2, 0, 2, 2)
+        self.gc_box.setLayout(self.gc_layout)
+        self.gc_box.move(510, 100)
+        self.gc_row_spinbox.valueChanged.connect(self.set_num_rows)
+        self.gc_col_spinbox.valueChanged.connect(self.set_num_cols)
+        self.gc_button.resize(self.gc_button.sizeHint())
+        self.gc_button.setEnabled(True)
+        self.gc_button.clicked.connect(self.like_grid_button_clicked)
 
     def start_work(self, img_file: str=None):
         """Show window w img_file in bg and allows user to draw grids"""
@@ -206,7 +252,8 @@ class GridWindow(QWidget):
             scene=self.view.scene,
             color=self.view.color,
             num_cols=self.view.num_cols,
-            num_rows=self.view.num_rows)
+            num_rows=self.view.num_rows
+        )
 
     @pyqtSlot(int)
     def set_num_cols(self, num_cols: int):
@@ -266,6 +313,19 @@ class GridWindow(QWidget):
             """Grid has not been drawn"""
             self.view.curr_grid.num_rows = num_rows
             self.view.curr_grid.init_grid_graphics()
+
+    @pyqtSlot()
+    def change_mode(self):
+        """Executed when a `QRadioButton `in grid control is pressed. Change
+        mode in `GridWindow` and emits `sig_change_mode`."""
+        if self.mode_grid_button.isChecked():
+            self.mode = GridWindow.modes['grid']
+            self.gc_box.setEnabled(True)
+            self.sig_change_mode.emit(self.mode)
+        elif self.mode_training_button.isChecked():
+            self.mode = GridWindow.modes['training']
+            self.gc_box.setEnabled(False)
+            self.sig_change_mode.emit(self.mode)
 
 
 if __name__ == "__main__":
