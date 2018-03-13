@@ -1,10 +1,10 @@
 import sys
 import numpy as np
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
-from PyQt5.QtGui import QMouseEvent, QPixmap
+from PyQt5.QtGui import QMouseEvent, QPixmap, QIcon
 from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QPushButton, \
     QWidget, QSpinBox, QGridLayout, QLabel, QGroupBox, QApplication, \
-    QRadioButton, QVBoxLayout
+    QRadioButton, QVBoxLayout, QListWidget, QAbstractItemView, QListWidgetItem
 
 
 from adjustable_grid import AdjustableGrid
@@ -12,24 +12,41 @@ from adjustable_grid import AdjustableGrid
 
 class GridView(QGraphicsView):
     """Provide a `QGraphicsView` to which add `AdjustableGrid`s. `GridView` is
-    a child of a `parent` widget. Contain default grid properties such as
-    `color`, `num_cols` and `num_rows`."""
+    a child of a `parent` widget. Contain default grid properties such as `
+    color`, `num_cols` and `num_rows`."""
 
     def __init__(self, *,
                  parent: QWidget,
                  color: Qt.GlobalColor=Qt.yellow,
                  num_cols: int=8,
                  num_rows: int=12):
+        """
+        Initialize a `GridView` inside a `GridWindow`, on which che user can
+        draw `AdjustableGrid`s.
+
+        Parameters
+        ----------
+        parent : QWidget
+            Qt parent widget (expected type `GridWindow`).
+        color : Qt.GlobalColor
+            Grid colors. Default `Qt.yellow`
+        num_cols : int
+            Grid column number. Default 8.
+        num_rows : int
+            Grid row number. Default 12.
+        """
         super().__init__(parent=parent)
         """Window properties"""
         self.setGeometry(0, 0, 500, 500)
         # self.setWindowTitle('Left click to top left grid corner')
         """W/o the following flag, mouseMove is invoked only w click+move"""
         self.setMouseTracking(True)
+
         """Scene"""
         self.scene = QGraphicsScene()
         self.setSceneRect(0, 0, 500, 500)
         self.setScene(self.scene)
+
         """Grids"""
         self.placed_grids = []
         self.color = color
@@ -41,20 +58,9 @@ class GridView(QGraphicsView):
             num_cols=self.num_cols,
             num_rows=self.num_rows
         )
+
         """Background image"""
         self.background_pixmap = QPixmap()
-
-        # self.gc_button.clicked.connect(self.like_grid_button_clicked)
-
-        # self.gc_layout.addWidget(self.gc_button, 0, 0)
-        # self.gc_layout.addLayout()
-        # self.gc_layout.setColumnMinimumWidth(1, 100)
-        # self.gc_layout.setRowMinimumHeight(1, 100)
-        # self.gc_layout.addWidget(self.gc_col_label, 0, 0)
-        # self.gc_layout.addWidget(self.gc_row_label, 1, 0)
-        # self.gc_layout.addWidget(self.gc_col_spinbox, 1, 0)
-        # self.gc_layout.addWidget(self.gc_row_spinbox, 1, 1)
-        #
 
     def set_background(self, img_file: str):
         """UNUSED"""
@@ -151,7 +157,9 @@ class GridWindow(QWidget):
     sig_change_mode = pyqtSignal(int)
 
     def __init__(self):
-        """Window properties"""
+        """
+        Initialize the window widget.
+        """
         super().__init__()
         self.setGeometry(0, 0, 700, 500)
         self.setWindowTitle('Grid window')
@@ -194,11 +202,23 @@ class GridWindow(QWidget):
                                        )
         self.gc_button = QPushButton('I like this grid!', parent=self)
 
+        """Placed grid widget"""
+        self.pg_box = QGroupBox(parent=self, title='Placed grids')
+        self.pg_layout = QGridLayout()
+        self.pg_list = QListWidget(parent=self)
+
         self.configure_gui()
         self.start_work()
 
     def configure_gui(self):
-        """Configure graphical objects"""
+        """
+        Configure graphical objects.
+
+        Returns
+        -------
+
+        """
+
         """Config. mode selection"""
         self.mode_layout.addWidget(self.mode_grid_button)
         self.mode_layout.addWidget(self.mode_training_button)
@@ -227,6 +247,13 @@ class GridWindow(QWidget):
         self.gc_button.setEnabled(True)
         self.gc_button.clicked.connect(self.like_grid_button_clicked)
 
+        """Configure placed grid widget"""
+        self.pg_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.pg_layout.addWidget(self.pg_list)
+        self.pg_box.setLayout(self.pg_layout)
+        self.pg_box.setGeometry(0, 0, 150, 240)
+        self.pg_box.move(510, 240)
+
     def start_work(self, img_file: str=None):
         """Show window w img_file in bg and allows user to draw grids"""
         # background_pixmap_unscaled = QPixmap(img_file, format='JPG')
@@ -243,17 +270,28 @@ class GridWindow(QWidget):
         """Extract grid coordinates and emit them"""
         grid_pts = self.view.curr_grid.generate_grid_pts()
         self.sig_found_grid.emit(grid_pts)
+
         """Make grid not editable and turn it blue"""
         self.view.curr_grid.place_grid()
+
         """Save grid in history"""
         self.view.placed_grids.append(self.view.curr_grid)
+
+        """Add grid to placed grid widget"""
+        item = QListWidgetItem(parent=self.pg_list)
+        item.setIcon(QIcon('grid_icon.png'))
+        grid_num = str(len(self.view.placed_grids))
+        cols = str(self.view.curr_grid.num_cols)
+        rows = str(self.view.curr_grid.num_rows)
+        text = 'Grid ' + grid_num + ' (' + rows + 'x' + cols + ')'
+        item.setText(text)
+
         """Initialize new grid using view settings"""
         self.view.curr_grid = AdjustableGrid(
             scene=self.view.scene,
             color=self.view.color,
             num_cols=self.view.num_cols,
-            num_rows=self.view.num_rows
-        )
+            num_rows=self.view.num_rows)
 
     @pyqtSlot(int)
     def set_num_cols(self, num_cols: int):

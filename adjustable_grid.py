@@ -509,12 +509,24 @@ class AdjustableGrid(QGraphicsItem):
             label.setVisible(True)
 
     def add_grid_to_scene(self):
-        """Display grid by adding all children of `AdjustableGrid` to scene
-         """
+        """
+        Display grid by adding all children of `AdjustableGrid` to scene.
+
+        Returns
+        -------
+
+        """
         self.scene.addItem(self)
 
     def place_grid(self):
-        """Change grid color, disable grid mobility and mouse interaction"""
+        """
+        Change grid color, disable grid mobility and mouse interaction
+
+        Returns
+        -------
+
+        """
+        """"""
         """The whole grid"""
         line_list = self.horizontal_lines + self.vertical_lines \
                     + [self.right_edge, self.left_edge] \
@@ -549,7 +561,21 @@ class AdjustableGrid(QGraphicsItem):
         self.square.setRect(0, 0, 0, 0)
 
     def move_grid(self, offset_x, offset_y):
-        """Move the whole grid by offset `offset_x, offset_y`"""
+        """
+        Move the whole grid (lines, disks, square, etc.) by spatial
+        translation.
+
+        Parameters
+        ----------
+        offset_x : float
+            offset x coordinate.
+        offset_y : float
+            offset y coordinate
+
+        Returns
+        -------
+
+        """
         line_list = self.horizontal_lines + self.vertical_lines \
                     + [self.right_edge, self.left_edge] \
                     + [self.top_edge, self.bottom_edge]
@@ -586,9 +612,28 @@ class AdjustableGrid(QGraphicsItem):
                     old_pos: QPointF,
                     new_pos: QPointF,
                     caller: QGraphicsEllipseItem):
-        """Rotate grid by pivoting it around the disk opposite to the `caller`
+        """
+        Rotate the whole grid by pivoting it around the disk opposite to the
+        `caller`
         disk. The angle is given by the difference of `old_pos` and `new_pos`.
-        Refer to PDF file for the notation used here."""
+        Refer to PDF file for the notation used here."
+
+        Parameters
+        ----------
+        old_pos : QPointF
+            old position (expected to be a mouse cursor position) of `caller`
+            disk. The grid rotation angle is given by taking the difference
+            between `old_pos` and `new_pos`.
+        new_pos : QPointF
+            new position...
+        caller : QGraphicsEllipseItem
+            Pivoting point is the disk opposite to `caller` disk.
+
+        Returns
+        -------
+
+        """
+
         line_list = self.horizontal_lines + self.vertical_lines \
                     + [self.right_edge, self.left_edge] \
                     + [self.top_edge, self.bottom_edge]
