@@ -140,7 +140,6 @@ class GridView(QGraphicsView):
 
     @pyqtSlot()
     def change_mode(self):
-        print(self.parentWidget().mode)
         if GridWindow.modes['grid'] == self.parentWidget().mode:
             self.curr_grid.setEnabled(True)
         elif GridWindow.modes['training'] == self.parentWidget().mode:
@@ -201,11 +200,7 @@ class GridWindow(QWidget):
                                        minimum=1
                                        )
         self.gc_button = QPushButton('I like this grid!', parent=self)
-
-        """Placed grid widget"""
-        self.pg_box = QGroupBox(parent=self, title='Placed grids')
-        self.pg_layout = QGridLayout()
-        self.pg_list = QListWidget(parent=self)
+        self.gc_list = QListWidget(parent=self)
 
         self.configure_gui()
         self.start_work()
@@ -238,21 +233,21 @@ class GridWindow(QWidget):
         self.gc_layout.addWidget(self.gc_col_label, 0, 1)
         self.gc_layout.addWidget(self.gc_col_spinbox, 1, 1)
         self.gc_layout.addWidget(self.gc_row_spinbox, 1, 0)
-        self.gc_layout.addWidget(self.gc_button, 2, 0, 2, 2)
+        self.gc_layout.addWidget(self.gc_button, 2, 0, 1, 2)
+        self.gc_layout.addWidget(self.gc_list, 3, 0, 1, 2)
         self.gc_box.setLayout(self.gc_layout)
+        self.gc_box.setGeometry(0, 0, 150, 400)
         self.gc_box.move(510, 100)
         self.gc_row_spinbox.valueChanged.connect(self.set_num_rows)
         self.gc_col_spinbox.valueChanged.connect(self.set_num_cols)
         self.gc_button.resize(self.gc_button.sizeHint())
         self.gc_button.setEnabled(True)
         self.gc_button.clicked.connect(self.like_grid_button_clicked)
-
-        """Configure placed grid widget"""
-        self.pg_list.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.pg_layout.addWidget(self.pg_list)
-        self.pg_box.setLayout(self.pg_layout)
-        self.pg_box.setGeometry(0, 0, 150, 240)
-        self.pg_box.move(510, 240)
+        self.gc_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        #
+        # self.pg_box.setLayout(self.pg_layout)
+        # self.pg_box.setGeometry(0, 0, 150, 240)
+        # self.pg_box.move(510, 240)
 
     def start_work(self, img_file: str=None):
         """Show window w img_file in bg and allows user to draw grids"""
@@ -278,7 +273,7 @@ class GridWindow(QWidget):
         self.view.placed_grids.append(self.view.curr_grid)
 
         """Add grid to placed grid widget"""
-        item = QListWidgetItem(parent=self.pg_list)
+        item = QListWidgetItem(parent=self.gc_list)
         item.setIcon(QIcon('grid_icon.png'))
         grid_num = str(len(self.view.placed_grids))
         cols = str(self.view.curr_grid.num_cols)
@@ -358,11 +353,13 @@ class GridWindow(QWidget):
         mode in `GridWindow` and emits `sig_change_mode`."""
         if self.mode_grid_button.isChecked():
             self.mode = GridWindow.modes['grid']
-            self.gc_box.setEnabled(True)
+            # self.gc_box.setEnabled(True)
+            self.gc_box.show()
             self.sig_change_mode.emit(self.mode)
         elif self.mode_training_button.isChecked():
             self.mode = GridWindow.modes['training']
-            self.gc_box.setEnabled(False)
+            # self.gc_box.setEnabled(False)
+            self.gc_box.hide()
             self.sig_change_mode.emit(self.mode)
 
 
