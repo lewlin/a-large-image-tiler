@@ -32,11 +32,34 @@ should be everything you need. Currently, `ALIT` cannot be installed using
 the only image type currently supported.
 - To draw a grid, left-click with the mouse and move the pointer. A second 
 left-click places the grid, right-click to cancel. The result will look similar 
-to the following (omitting a background image for clarity) 
+to the following (where I omit the background image for clarity): 
 
 
 ![alt text][howto_1]
 
 [howto_1]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/howto_1.png "How To 1"
+
+- The grid can be dragged by the edges, rotated using the circles at the corners
+and resized by clicking on the little square. 
+- You can also change the tiling patterns and toggle the labels using the 
+*Grid control* widget.
+- Once the grid suits you, click on *I like this grid*. 
+
+![alt text][howto_2]
+
+[howto_2]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/howto_2.png "How To 2"
+
+- You can now select a grid in the *Grid control* and start typing to rename it.
+When you crop the image, the results will be saved in a folder named as the grid.
+- If you don't like a grid you placed, delete it using the *Delete* button.
+- When you feel brave enough, select a grid and press *Crop*. The grid squares
+are now saved as TIFF files named as the corresponding labels. On my Mac, this 
+is how it looks like for *3x3* grid:
+
+![alt text][howto_3]
+
+[howto_3]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/howto_3.png "How To 3"
+
+Enjoy!
 
 
