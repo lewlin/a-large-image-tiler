@@ -21,22 +21,7 @@ it works.
 
 
 ## Installation
-The software achieves the following goals.
-
-draw and manipulates grids of 
-variable size. Grids dynamically follow mouse cursor as being placed, can be 
-dragged by the edges and rotated by the corners. Dynamical resizing is 
-also possible (by clicking on the little square). 
-
-
-Once a grid is placed, the user 
-This script is part of an interface of a more complex  software that I am
- currently writing. The software aims to automatically count microbial 
- colonies from 
- images obtained by spotting a 96-well plate  (commonly used in microbiology
-  wet lab). Hence,
- the default grid size is 12 x 8.  
-
+`ALIT` is written in `Python 3` and requires the `PyQt5` library.  
 
 Enjoy!
 
