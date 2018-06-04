@@ -1,0 +1,10 @@
+.idea*
+.DS*
+__pycache*
+.ipynb*
+result*
+dist*
+build*
+cropper.egg*
+
+
