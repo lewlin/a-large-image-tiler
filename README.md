@@ -17,7 +17,7 @@ it works. Enjoy!
 
 ![alt text][screenshot]
 
-[screenshot]: https://github.com/lewlin/grid-image-cropper/blob/master/main_screenshot.png "Screenshot"
+[screenshot]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/main.png "Screenshot"
 
 
 ## Installation
@@ -35,8 +35,8 @@ left-click places the grid, right-click to cancel. The result will look similar
 to the following (omitting a background image for clarity) 
 
 
-![alt text][screenshot]
+![alt text][howto_1]
 
-[screenshot]: https://github.com/lewlin/grid-image-cropper/blob/master/howto_screenshot_1.png "Screenshot"
+[howto_1]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/howto_1.png "How To 1"
 
 
