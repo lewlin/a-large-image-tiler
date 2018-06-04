@@ -13,7 +13,7 @@ software really does what I need, which is the following:
 (commonly used in biology). 
 
 The screenshot gives you an idea of what the software accomplishes and how 
-it works.
+it works. Enjoy!
 
 ![alt text][screenshot]
 
@@ -21,8 +21,22 @@ it works.
 
 
 ## Installation
-`ALIT` is written in `Python 3` and requires the `PyQt5` library.  
+`ALIT` is written in `Python 3` and requires the `PyQt5` library and this 
+should be everything you need. Currently, `ALIT` cannot be installed using 
+`pip`, but I might distribute it as a Python package in future releases. 
 
-Enjoy!
+
+## How to use
+
+- Load the TIFF image you want to tile using the *Load TIFF button*. TIFF is
+the only image type currently supported.
+- To draw a grid, left-click with the mouse and move the pointer. A second 
+left-click places the grid, right-click to cancel. The result will look similar 
+to the following (omitting a background image for clarity) 
+
+
+![alt text][screenshot]
+
+[screenshot]: https://github.com/lewlin/grid-image-cropper/blob/master/howto_screenshot_1.png "Screenshot"
 
 
