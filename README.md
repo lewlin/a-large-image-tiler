@@ -17,7 +17,7 @@ it works.
 
 ![alt text][screenshot]
 
-[screenshot]: https://github.com/lewlin/grid-image-cropper/blob/master/Screenshot.png "Screenshot"
+[screenshot]: https://github.com/lewlin/grid-image-cropper/blob/master/main_screenshot.png "Screenshot"
 
 
 ## Installation

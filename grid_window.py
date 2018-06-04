@@ -159,7 +159,7 @@ class GridWindow(QWidget):
         """
         super().__init__()
         self.setGeometry(0, 0, 700, 500)
-        self.setWindowTitle('Image cropper')
+        self.setWindowTitle('ALIT')
 
         self.initial_color = Qt.darkGreen
         self.initial_no_cols = 1
