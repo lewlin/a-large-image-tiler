@@ -17,7 +17,7 @@ it works. Enjoy!
 
 ![alt text][screenshot]
 
-[screenshot]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/main.png "Screenshot"
+[screenshot]: ./screenshots/main.png "Screenshot"
 
 
 ## Installation
@@ -37,7 +37,7 @@ to the following (where I omit the background image for clarity):
 
 ![alt text][howto_1]
 
-[howto_1]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/howto_1.png "How To 1"
+[howto_1]: ./screenshots/howto_1.png "How To 1"
 
 - The grid can be dragged by the edges, rotated using the circles at the corners
 and resized by clicking on the little square. 
@@ -47,7 +47,7 @@ and resized by clicking on the little square.
 
 ![alt text][howto_2]
 
-[howto_2]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/howto_2.png "How To 2"
+[howto_2]: ./screenshots/howto_2.png "How To 2"
 
 - You can now select a grid in the *Grid control* and start typing to rename it.
 When you crop the image, the results will be saved in a folder named as the grid.
@@ -58,7 +58,7 @@ is how it looks like for *3x3* grid:
 
 ![alt text][howto_3]
 
-[howto_3]: https://github.com/lewlin/grid-image-cropper/blob/master/screenshots/howto_3.png "How To 3"
+[howto_3]: ./screenshots/howto_3.png "How To 3"
 
 Enjoy!
 
