@@ -1,7 +1,8 @@
 import sys
-from PyQt5.QtCore import Qt, QSize, QRect, QPointF, pyqtSlot, QRectF
+import numpy as np
+from PyQt5.QtCore import Qt, QSize, QRect, QPointF, pyqtSlot, QRectF, QPoint
 from PyQt5.QtGui import QMouseEvent, QPixmap, QIcon, QTransform, QPolygonF, \
-    QPainterPath, QPainter, QImage
+    QPainterPath, QPainter, QImage, QBrush
 from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene
 
 
@@ -14,10 +15,14 @@ class BackgroundImage:
         self.img_file = None
         self.image = None  # QImage
         self.scaling_factor = None  # from displayed to original
+        self.img_width = None  # of original image
+        self.img_height = None  # of original image
 
-        self.rotation = None
+        self.rotation = QTransform()  # rotate image to flat out grid angle
         self.rotated_image = None
-        self.angle = None
+        self.angle = None  # CCW (rad)
+
+        self.translation = QTransform()  # translate ref so that (0,0) is tl
 
     def show_in_scene(self, view):
         """
@@ -55,15 +60,49 @@ class BackgroundImage:
 
         """
         self.image = QImage(file_name)
+        self.img_width = self.image.width()
+        self.img_height = self.image.height()
 
     def rotate_image(self, angle):
-        print('rotate_image is called')
-        self.rotation = QTransform()
-        self.rotation.rotateRadians(angle)
+        """
+            Rotate image CW by `angle` (in rad).
+            Set `self.rotated_image`.
+        :param angle:
+        :return:
+        """
+
+        """Rotate image to flat grid angle"""
         self.angle = angle
+        self.rotation.rotateRadians(angle)  # rotate CW (CCW if angle < 0)
         self.rotated_image = self.image.transformed(self.rotation)
 
-    def map_item(self, item):
+        """DEBUG: show rotated image w/o translation"""
+        paint = QPainter(self.rotated_image)
+        paint.setBrush(QBrush(Qt.red, Qt.SolidPattern))
+        paint.drawRect(0, 0, 100, 100)
+        paint.end()
+        self.rotated_image.save('rotated.tiff')
+        print('rotated image by', self.angle)
+
+        """Set translated frame so that top-left corner of image is (0, 0)"""
+        phi = -self.angle  # phi in grid geometry notation
+        if 0 < phi < np.pi/2:
+            dy = np.sin(phi) * self.img_width
+            dx = 0
+        else:
+            raise NotImplementedError
+        print('Translating by', dx, dy)
+        self.translation.translate(dx, dy)
+
+        """DEBUG: draw transformed rect to check top-left corner"""
+        paint2 = QPainter(self.rotated_image)
+        paint2.setBrush(QBrush(Qt.green, Qt.SolidPattern))
+        new_tl = self.map_2_rotated_frame(QPoint(0, 0))
+        paint2.drawRect(new_tl.x(), new_tl.y(), 100, 100)
+        paint2.end()
+        self.rotated_image.save('transf.tiff')
+
+    def map_2_rotated_frame(self, item):
         """
         Map item to rotated reference.
         :param item
@@ -72,9 +111,13 @@ class BackgroundImage:
         :return:
             item in rotated coordinates
         """
-
         if self.rotation is not None:
-            return self.rotation.map(item)
+            rotated_item = self.rotation.map(item)
+        else:
+            rotated_item = item
+
+        if self.translation is not None:
+            return self.translation.map(rotated_item)
         else:
             return None
 
@@ -89,7 +132,7 @@ class BackgroundImage:
         :param file_name:
         :return:
         """
-
+        return # TODO be sure you have the right frame first
         print('angle', angle)
 
         tl, bl, br, tr = coords
@@ -103,18 +146,18 @@ class BackgroundImage:
         print('Scaled coords', tl, br)
 
         """Cast polygon coordinates to rotated image reference"""
-        if self.rotation is not None:
+        if self.transformation is not None:
             rotated_coords = []
             for scaled_coord in scaled_coords:
-                rotated_coords.append(self.map_item(scaled_coord))
+                rotated_coords.append(self.map_2_rotated_frame(scaled_coord))
             tl, bl, br, tr = rotated_coords
         else:
             tl, bl, br, tr = scaled_coords
 
         print('Rotated coords', tl, br)
 
-        corner = self.map_item(QPointF(0, 0))
-        print('new corner', corner)
+        # corner = self.map_2_rotated_frame(QPointF(0, 0))
+        # print('new corner', corner)
 
         """Find rectangle to be cropped"""
         scaled_rect = QRectF(tl, br).toRect()
