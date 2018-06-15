@@ -85,19 +85,25 @@ class BackgroundImage:
 
         """Set translated frame so that top-left corner of image is (0, 0)"""
         phi = -self.angle  # phi in grid geometry notation
-        if 0 < phi < np.pi/2:
+        print('PHI:', phi)
+        if 0 <= phi < np.pi/2:
             dy = np.sin(phi) * self.img_width
             dx = 0
+        elif np.pi/2 <= phi < np.pi:
+            eps = phi - np.pi/2
+            dx = self.img_width * np.sin(eps)
+            dy = self.img_width * np.cos(eps) + self.img_height * np.sin(eps)
         else:
             raise NotImplementedError
         print('Translating by', dx, dy)
         self.translation.translate(dx, dy)
 
-        """DEBUG: draw transformed rect to check top-left corner"""
+        """DEBUG: draw transformed rect to image top-left corner"""
         paint2 = QPainter(self.rotated_image)
         paint2.setBrush(QBrush(Qt.green, Qt.SolidPattern))
         new_tl = self.map_2_rotated_frame(QPoint(0, 0))
-        paint2.drawRect(new_tl.x(), new_tl.y(), 100, 100)
+        print(new_tl)
+        paint2.drawRect(new_tl.x()-50, new_tl.y()-50, 100, 100)
         paint2.end()
         self.rotated_image.save('transf.tiff')
 
@@ -131,6 +137,7 @@ class BackgroundImage:
         :param file_name:
         :return:
         """
+
         tl, bl, br, tr = coords
         print('Original coords', tl, br)
 
