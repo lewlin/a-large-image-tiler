@@ -26,7 +26,7 @@ class BackgroundImage:
 
     def show_in_scene(self, view):
         """
-            Rescale QPixmap to scene and show it.
+            Rescale QPixmap to scene and show it in view.
 
         Parameters
         ----------
@@ -37,7 +37,6 @@ class BackgroundImage:
         -------
 
         """
-
         pixmap = QPixmap.fromImage(self.image)
         pixmap_scaled = pixmap.scaledToHeight(view.height())
         view.scene.addPixmap(pixmap_scaled)
@@ -77,12 +76,12 @@ class BackgroundImage:
         self.rotated_image = self.image.transformed(self.rotation)
 
         """DEBUG: show rotated image w/o translation"""
-        paint = QPainter(self.rotated_image)
-        paint.setBrush(QBrush(Qt.red, Qt.SolidPattern))
-        paint.drawRect(0, 0, 100, 100)
-        paint.end()
-        self.rotated_image.save('rotated.tiff')
-        print('rotated image by', self.angle)
+        # paint = QPainter(self.rotated_image)
+        # paint.setBrush(QBrush(Qt.red, Qt.SolidPattern))
+        # paint.drawRect(0, 0, 100, 100)
+        # paint.end()
+        # self.rotated_image.save('rotated.tiff')
+        # print('rotated image by', self.angle)
 
         """Set translated frame so that top-left corner of image is (0, 0)"""
         phi = -self.angle  # phi in grid geometry notation
@@ -132,9 +131,6 @@ class BackgroundImage:
         :param file_name:
         :return:
         """
-        return # TODO be sure you have the right frame first
-        print('angle', angle)
-
         tl, bl, br, tr = coords
         print('Original coords', tl, br)
 
@@ -146,7 +142,7 @@ class BackgroundImage:
         print('Scaled coords', tl, br)
 
         """Cast polygon coordinates to rotated image reference"""
-        if self.transformation is not None:
+        if self.rotation is not None:
             rotated_coords = []
             for scaled_coord in scaled_coords:
                 rotated_coords.append(self.map_2_rotated_frame(scaled_coord))
@@ -161,10 +157,6 @@ class BackgroundImage:
 
         """Find rectangle to be cropped"""
         scaled_rect = QRectF(tl, br).toRect()
-        # TODO rotation do not account for translating coordinate system.
-        # TODO FIX THAT!
-        # TODO there are large images in history. Images should never be outputted
-        # TODO to git directory. Also, I need to remove that from history.
         # w = self.rotated_image.width()
         # h = self.rotated_image.height()
         # scaled_rect = QRectF(QPointF(0, 0), QPointF(w, h)).toRect()
